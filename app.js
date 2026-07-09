@@ -20,7 +20,7 @@ const CHECKLIST = [
 
 const demoBids = [
   {
-    id: "demo-1", bidNo: "R26BK010624350-000", title: "고성능 컴퓨터서버 구매",
+    id: "demo-1", bidNo: "R26BK01624350-000", title: "고성능 컴퓨터서버 구매",
     agency: "한국과학기술원", demandAgency: "한국과학기술원", category: "물품",
     contractMethod: "제한경쟁", bidMethod: "전자입찰", amount: 185000000,
     postedAt: "2026-07-09T08:43:00+09:00", deadlineAt: "2026-07-20T10:00:00+09:00",
@@ -28,7 +28,8 @@ const demoBids = [
     status: "검토중", certifications: ["정보통신공사업"], documents: ["사업자등록증", "물품공급확약서"],
     requirements: ["중소기업자", "해당 물품 납품 가능 업체"], risks: ["직접생산확인 대상 품목 여부 확인 필요"],
     summary: "GPU 연산용 고성능 서버를 구매하는 물품 입찰입니다. 품목과 예산은 회사 취급 범위에 부합하며 인증 조건의 최종 확인이 필요합니다.",
-    sourceUrl: "https://www.g2b.go.kr/", keywords: ["서버", "GPU 서버", "컴퓨터"],
+    sourceUrl: "https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK01624350&bidPbancOrd=000",
+    keywords: ["서버", "GPU 서버", "컴퓨터"],
     breakdown: [25, 14, 17, 10, 10, 8, 8]
   },
   {
@@ -99,6 +100,26 @@ const date = value => value ? new Intl.DateTimeFormat("ko-KR", { dateStyle: "med
 const dateTime = value => value ? new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "-";
 const daysUntil = value => Math.ceil((new Date(value).getTime() - Date.now()) / 86400000);
 
+function splitBidNumber(bidNo, bidOrder) {
+  const normalized = String(bidNo || "").trim().toUpperCase().replace(/\s+/g, "");
+  const match = normalized.match(/^(R\d{2}BK\d+)(?:-(\d{1,3}))?$/);
+  const number = match ? match[1] : normalized.replace(/-\d{1,3}$/, "");
+  const embeddedOrder = match?.[2];
+  const order = String(bidOrder ?? embeddedOrder ?? "000").replace(/\D/g, "").padStart(3, "0").slice(-3);
+  return { number, order };
+}
+
+function formatBidNumber(bidNo, bidOrder) {
+  const { number, order } = splitBidNumber(bidNo, bidOrder);
+  return `${number}-${order}`;
+}
+
+function g2bDetailUrl(bidNo, bidOrder) {
+  const { number, order } = splitBidNumber(bidNo, bidOrder);
+  const query = new URLSearchParams({ bidPbancNo: number, bidPbancOrd: order });
+  return `https://www.g2b.go.kr/link/PNPE027_01/single/?${query.toString()}`;
+}
+
 function scoreBadge(score) {
   if (score >= 90) return ["적극 검토", "badge-green"];
   if (score >= 70) return ["참여 가능", "badge-blue"];
@@ -143,7 +164,7 @@ async function loadBids() {
 function mapSupabaseBid(row) {
   const analysis = Array.isArray(row.bid_analyses) ? row.bid_analyses[0] : row.bid_analyses || {};
   return {
-    id: row.id, bidNo: row.bid_no, title: row.title, agency: row.agency,
+    id: row.id, bidNo: formatBidNumber(row.bid_no, row.bid_order), title: row.title, agency: row.agency,
     demandAgency: row.demand_agency, category: row.bid_type, contractMethod: row.contract_method,
     bidMethod: row.bid_method, amount: row.estimated_amount || row.base_amount,
     postedAt: row.posted_at, deadlineAt: row.deadline_at, openingAt: row.opening_at,
@@ -151,7 +172,7 @@ function mapSupabaseBid(row) {
     status: row.status || "신규", certifications: analysis.required_certifications || [],
     documents: analysis.required_documents || [], requirements: analysis.qualification_requirements || [],
     risks: analysis.risk_factors || [], summary: analysis.summary || "분석 대기 중입니다.",
-    sourceUrl: row.source_url || "https://www.g2b.go.kr/", keywords: row.matched_keywords || [],
+    sourceUrl: g2bDetailUrl(row.bid_no, row.bid_order), keywords: row.matched_keywords || [],
     breakdown: analysis.score_breakdown || [0, 0, 0, 0, 0, 0, 0]
   };
 }

@@ -17,6 +17,31 @@ jobs:
           python-version: "3.12"
       - name: Compile collector
         run: python -m compileall -q collector
+      - name: Verify bid number and detail URL
+        working-directory: collector
+        run: |
+          python - <<'PY'
+          from normalizer import normalize
+
+          bid = normalize({
+              "bidNtceNo": "R26BK01624350",
+              "bidNtceOrd": "000",
+              "bidNtceNm": "고성능 컴퓨터서버 구매",
+          })
+          assert bid["bid_no"] == "R26BK01624350"
+          assert bid["bid_order"] == "000"
+          assert bid["source_url"] == (
+              "https://www.g2b.go.kr/link/PNPE027_01/single/"
+              "?bidPbancNo=R26BK01624350&bidPbancOrd=000"
+          )
+
+          combined = normalize({
+              "bidNtceNo": "R26BK01624350-001",
+              "bidNtceNm": "정정공고",
+          })
+          assert combined["bid_no"] == "R26BK01624350"
+          assert combined["bid_order"] == "001"
+          PY
       - name: Check required web files
         shell: bash
         run: |
