@@ -22,21 +22,23 @@
 python -m http.server 8080
 ```
 
-브라우저에서 `http://localhost:8080`으로 접속합니다. Supabase 설정이 없으면
-내장된 데모 데이터와 브라우저 localStorage를 사용합니다.
+브라우저에서 `http://localhost:8080`으로 접속합니다. 운영 버전은 Supabase
+설정이 없거나 연결에 실패하면 임의의 데모 데이터를 표시하지 않고 오류를 안내합니다.
 
 ## Supabase 연결
 
 1. Supabase 프로젝트를 만듭니다.
 2. SQL Editor에서 `supabase/migrations/001_initial_schema.sql`을 실행합니다.
-3. `config.example.js`를 `config.js`로 복사합니다.
-4. 공개용 Supabase URL과 anon key를 입력합니다.
-5. GitHub 저장소 Settings → Secrets and variables → Actions에 다음 값을 등록합니다.
+GitHub Pages 배포 시 `deploy-pages.yml`이 GitHub Actions의 암호화 설정으로
+`config.js`를 생성합니다. 운영 키를 저장소 파일에 직접 기록하지 않습니다.
+
+GitHub Actions 설정:
 
 ```text
-DATA_GO_KR_API_KEY
-SUPABASE_URL
-SUPABASE_SERVICE_ROLE_KEY
+Secret: DATA_GO_KR_API_KEY
+Secret: SUPABASE_ANON_KEY
+Secret: SUPABASE_SERVICE_ROLE_KEY
+Variable: SUPABASE_URL
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY`와 공공데이터 API 키는 절대 웹 파일에 넣지 마세요.

@@ -18,62 +18,6 @@ const CHECKLIST = [
   "담당자 검토가 완료되었는가", "대표 승인이 완료되었는가"
 ];
 
-const demoBids = [
-  {
-    id: "demo-1", bidNo: "R26BK01624350-000", title: "고성능 컴퓨터서버 구매",
-    agency: "한국과학기술원", demandAgency: "한국과학기술원", category: "물품",
-    contractMethod: "제한경쟁", bidMethod: "전자입찰", amount: 185000000,
-    postedAt: "2026-07-09T08:43:00+09:00", deadlineAt: "2026-07-20T10:00:00+09:00",
-    openingAt: "2026-07-20T11:00:00+09:00", region: "전국", score: 92,
-    status: "검토중", certifications: ["정보통신공사업"], documents: ["사업자등록증", "물품공급확약서"],
-    requirements: ["중소기업자", "해당 물품 납품 가능 업체"], risks: ["직접생산확인 대상 품목 여부 확인 필요"],
-    summary: "GPU 연산용 고성능 서버를 구매하는 물품 입찰입니다. 품목과 예산은 회사 취급 범위에 부합하며 인증 조건의 최종 확인이 필요합니다.",
-    sourceUrl: "https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK01624350&bidPbancOrd=000",
-    keywords: ["서버", "GPU 서버", "컴퓨터"],
-    breakdown: [25, 14, 17, 10, 10, 8, 8]
-  },
-  {
-    id: "demo-2", bidNo: "R26BK01623889-000", title: "컴퓨터공학과 융합안전공학과 컴퓨터 구입",
-    agency: "울산과학대학교 산학협력단", demandAgency: "울산과학대학교",
-    category: "물품", contractMethod: "일반경쟁", bidMethod: "전자입찰", amount: 240000000,
-    postedAt: "2026-07-08T17:02:00+09:00", deadlineAt: "2026-07-16T11:00:00+09:00",
-    openingAt: "2026-07-16T12:00:00+09:00", region: "전국", score: 82,
-    status: "신규", certifications: ["중소기업확인서"], documents: ["사업자등록증", "법인등기부등본"],
-    requirements: ["중소기업자", "컴퓨터 납품 가능 업체"], risks: ["제조사 공급확약서 필요"],
-    summary: "교육용 데스크톱과 모니터를 일괄 납품하는 공고입니다. 취급 품목에는 부합하지만 제조사 공급확약서 발급 가능 여부를 확인해야 합니다.",
-    sourceUrl: "https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK01623889&bidPbancOrd=000",
-    keywords: ["컴퓨터", "PC", "모니터"],
-    breakdown: [25, 15, 15, 10, 8, 5, 4]
-  },
-  {
-    id: "demo-3", bidNo: "R26BK01621451-000", title: "네트워크 장비 유지보수 및 교체",
-    agency: "식품의약품안전처", demandAgency: "식품의약품안전처",
-    category: "용역", contractMethod: "제한경쟁", bidMethod: "전자입찰", amount: 60000000,
-    postedAt: "2026-07-08T15:01:00+09:00", deadlineAt: "2026-07-20T10:00:00+09:00",
-    openingAt: "2026-07-20T11:00:00+09:00", region: "서울", score: 55,
-    status: "조건확인필요", certifications: ["정보통신공사업"], documents: ["실적증명서"],
-    requirements: ["서울특별시 소재 업체", "최근 3년 유사실적 1억 원 이상"],
-    risks: ["지역 제한 확인 필요", "유사실적 기준 미달 가능성"],
-    summary: "네트워크 장비 교체와 유지보수를 포함하는 용역입니다. 지역 및 실적 조건이 있어 담당자 확인이 필요합니다.",
-    sourceUrl: "https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK01621451&bidPbancOrd=000",
-    keywords: ["네트워크", "유지보수"],
-    breakdown: [20, 14, 12, 3, 8, 2, 0]
-  },
-  {
-    id: "demo-4", bidNo: "R26BK01622851-000", title: "전자칠판 및 교육용 기자재 구매",
-    agency: "단국대학교 산학협력단", demandAgency: "단국대학교",
-    category: "물품", contractMethod: "지명경쟁", bidMethod: "전자입찰", amount: 98000000,
-    postedAt: "2026-07-07T13:08:00+09:00", deadlineAt: "2026-07-11T10:00:00+09:00",
-    openingAt: "2026-07-11T11:00:00+09:00", region: "전국", score: 74,
-    status: "참여가능", certifications: ["중소기업확인서"], documents: ["물품공급확약서"],
-    requirements: ["전자칠판 납품 및 설치 가능 업체"], risks: ["현장설치 일정 확인 필요"],
-    summary: "강의실 전자칠판과 주변기기를 납품·설치하는 공고입니다. 취급 품목과 예산이 적합하며 설치 일정을 확인해야 합니다.",
-    sourceUrl: "https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK01622851&bidPbancOrd=000",
-    keywords: ["전자칠판", "교육 기자재"],
-    breakdown: [23, 14, 14, 10, 6, 4, 3]
-  }
-];
-
 const state = {
   route: location.hash.slice(1) || "/dashboard",
   bids: [],
@@ -85,6 +29,8 @@ const state = {
   saved: JSON.parse(localStorage.getItem("withbid-saved") || "[]"),
   notes: JSON.parse(localStorage.getItem("withbid-notes") || "{}"),
   checks: JSON.parse(localStorage.getItem("withbid-checks") || "{}"),
+  connectionStatus: "loading",
+  connectionError: "",
   keywordGroups: JSON.parse(localStorage.getItem("withbid-keywords") || "null") || [
     { name: "PC·컴퓨터", keywords: ["컴퓨터", "PC", "데스크톱", "노트북", "랩탑"] },
     { name: "서버·고성능장비", keywords: ["서버", "SERVER", "GPU 서버", "워크스테이션", "딥러닝"] },
@@ -147,7 +93,9 @@ function persist() {
 
 async function loadBids() {
   if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) {
-    state.bids = demoBids;
+    state.bids = [];
+    state.connectionStatus = "config_missing";
+    state.connectionError = "Supabase 배포 설정이 없습니다.";
     return;
   }
   try {
@@ -158,9 +106,13 @@ async function loadBids() {
     if (!response.ok) throw new Error(`Supabase ${response.status}`);
     const rows = await response.json();
     state.bids = rows.map(mapSupabaseBid);
+    state.connectionStatus = "connected";
+    state.connectionError = "";
   } catch (error) {
-    console.warn("Supabase 연결 실패, 데모 데이터를 사용합니다.", error);
-    state.bids = demoBids;
+    console.error("Supabase 연결 실패", error);
+    state.bids = [];
+    state.connectionStatus = "error";
+    state.connectionError = `실제 데이터 연결 실패: ${error.message}`;
   }
 }
 
@@ -192,7 +144,7 @@ function layout(content) {
         <button class="mobile-menu" data-action="menu">☰</button>
         <div class="brand">WithBid <span>AI</span></div>
         <div>공공입찰 분석 시스템</div>
-        <div class="topbar-meta">${CONFIG.supabaseUrl ? "Supabase 연결됨" : "데모 모드"} · ${date(new Date())}</div>
+        <div class="topbar-meta">${state.connectionStatus === "connected" ? "운영 DB 연결됨" : "연결 확인 필요"} · ${date(new Date())}</div>
       </header>
       <div class="layout">
         <aside class="sidebar" id="sidebar">
@@ -242,7 +194,9 @@ function dashboard() {
   return layout(`
     ${header("대시보드", "오늘 확인해야 할 공고와 업무 현황입니다.",
       `<button class="btn btn-primary" data-route="/bids">공고 검색</button>`)}
-    ${!CONFIG.supabaseUrl ? `<div class="notice">현재 데모 데이터로 실행 중입니다. 실제 운영 전 Supabase와 나라장터 API를 연결하세요.</div>` : ""}
+    ${state.connectionStatus === "config_missing" ? `<div class="notice">운영 DB 설정이 배포되지 않았습니다. 관리자에게 문의하세요.</div>` : ""}
+    ${state.connectionStatus === "error" ? `<div class="notice">${escapeHtml(state.connectionError)}</div>` : ""}
+    ${state.connectionStatus === "connected" && !state.bids.length ? `<div class="notice">운영 DB 연결은 정상입니다. 첫 나라장터 수집 작업이 완료되면 실제 공고가 표시됩니다.</div>` : ""}
     <section class="cards">
       <article class="metric"><div class="metric-label">전체 공고</div><div class="metric-value">${state.bids.length}</div><div class="metric-note">수집된 공고</div></article>
       <article class="metric"><div class="metric-label">마감 7일 이내</div><div class="metric-value">${due7}</div><div class="metric-note">우선 확인 필요</div></article>
@@ -402,7 +356,7 @@ function settingsPage() {
       <section class="panel"><h2>자동수집</h2>
         <dl class="info-grid" style="grid-template-columns:1fr 1fr"><div class="info"><dt>실행 시각</dt><dd>매일 08:00 KST</dd></div>
         <div class="info"><dt>실행 방식</dt><dd>GitHub Actions</dd></div><div class="info"><dt>데이터 원천</dt><dd>나라장터 API</dd></div>
-        <div class="info"><dt>현재 연결</dt><dd>${CONFIG.supabaseUrl?"운영":"데모"}</dd></div></dl>
+        <div class="info"><dt>현재 연결</dt><dd>${state.connectionStatus === "connected" ? "운영 DB" : "확인 필요"}</dd></div></dl>
       </section>
     </div>
   `);

@@ -50,3 +50,4 @@ jobs:
           test -f styles.css
           ! grep -q 'sourceUrl: "https://www.g2b.go.kr/"' app.js
           grep -q 'g2bDetailUrl(bid.bidNo)' app.js
+          ! grep -q 'demoBids' app.js
