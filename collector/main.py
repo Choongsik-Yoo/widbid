@@ -35,9 +35,13 @@ def main() -> None:
                 bid["matched_keywords"] = matches
                 matched.append(bid)
         saved_bids = repository.upsert_bids(matched)
+        analysis_targets = {
+            bid["id"]: bid
+            for bid in [*saved_bids, *repository.bids_without_analysis()]
+        }
         analyses = [
-            {"bid_id": saved["id"], **analyze_bid(saved)}
-            for saved in saved_bids
+            {"bid_id": bid["id"], **analyze_bid(bid)}
+            for bid in analysis_targets.values()
         ]
         repository.upsert_analyses(analyses)
         repository.finish_run(

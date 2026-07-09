@@ -78,3 +78,21 @@ class SupabaseRepository:
         )
         response.raise_for_status()
         log.info("Supabase 분석/적합도 %s건 upsert 완료", len(analyses))
+
+    def bids_without_analysis(self) -> list[dict[str, Any]]:
+        bids_response = requests.get(
+            f"{self.base_url}/bids",
+            params={"select": "*", "limit": "1000"},
+            headers=self.headers,
+            timeout=30,
+        )
+        bids_response.raise_for_status()
+        analyses_response = requests.get(
+            f"{self.base_url}/bid_analyses",
+            params={"select": "bid_id", "limit": "1000"},
+            headers=self.headers,
+            timeout=30,
+        )
+        analyses_response.raise_for_status()
+        analyzed_ids = {row["bid_id"] for row in analyses_response.json()}
+        return [bid for bid in bids_response.json() if bid["id"] not in analyzed_ids]
