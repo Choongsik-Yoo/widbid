@@ -235,6 +235,26 @@ create policy "users manage own checklists" on public.bid_checklists
 create policy "users manage own company" on public.company_profiles
   for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
 
+-- "Automatically expose new tables"를 비활성화한 운영 프로젝트에서는
+-- Data API 역할에 필요한 권한을 명시적으로 부여해야 합니다.
+grant usage on schema public to anon, authenticated, service_role;
+
+grant select on table
+  public.bids,
+  public.bid_analyses,
+  public.keyword_groups,
+  public.keywords
+to anon, authenticated;
+
+grant select, insert, update, delete on table
+  public.saved_bids,
+  public.bid_checklists,
+  public.company_profiles
+to authenticated;
+
+grant all privileges on all tables in schema public to service_role;
+grant all privileges on all sequences in schema public to service_role;
+
 insert into public.keyword_groups (group_name) values
   ('PC·컴퓨터'), ('서버·고성능장비'), ('전산장비'),
   ('네트워크·스토리지'), ('주변기기'), ('교육·강의장비')
