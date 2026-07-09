@@ -7,6 +7,7 @@ from config import Config
 from g2b_client import G2BClient
 from keyword_matcher import DEFAULT_KEYWORDS, matched_keywords
 from normalizer import normalize
+from scorer import analyze_bid
 from supabase_repository import SupabaseRepository
 
 KST = timezone(timedelta(hours=9))
@@ -33,13 +34,19 @@ def main() -> None:
             if matches:
                 bid["matched_keywords"] = matches
                 matched.append(bid)
-        repository.upsert_bids(matched)
+        saved_bids = repository.upsert_bids(matched)
+        analyses = [
+            {"bid_id": saved["id"], **analyze_bid(saved)}
+            for saved in saved_bids
+        ]
+        repository.upsert_analyses(analyses)
         repository.finish_run(
             run_id,
             status="success",
             finished_at=datetime.now(KST).isoformat(),
             fetched_count=len(raw_items),
             matched_count=len(matched),
+            analyzed_count=len(analyses),
         )
     except Exception as exc:
         repository.finish_run(

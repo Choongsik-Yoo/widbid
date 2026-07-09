@@ -49,15 +49,32 @@ class SupabaseRepository:
         )
         response.raise_for_status()
 
-    def upsert_bids(self, bids: list[dict[str, Any]]) -> None:
+    def upsert_bids(self, bids: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if not bids:
-            return
+            return []
         response = requests.post(
             f"{self.base_url}/bids",
             params={"on_conflict": "bid_no,bid_order,bid_type"},
-            headers={**self.headers, "Prefer": "resolution=merge-duplicates"},
+            headers={
+                **self.headers,
+                "Prefer": "resolution=merge-duplicates,return=representation",
+            },
             json=bids,
             timeout=60,
         )
         response.raise_for_status()
         log.info("Supabase에 %s건 upsert 완료", len(bids))
+        return response.json()
+
+    def upsert_analyses(self, analyses: list[dict[str, Any]]) -> None:
+        if not analyses:
+            return
+        response = requests.post(
+            f"{self.base_url}/bid_analyses",
+            params={"on_conflict": "bid_id"},
+            headers={**self.headers, "Prefer": "resolution=merge-duplicates"},
+            json=analyses,
+            timeout=60,
+        )
+        response.raise_for_status()
+        log.info("Supabase 분석/적합도 %s건 upsert 완료", len(analyses))

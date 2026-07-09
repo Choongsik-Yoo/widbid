@@ -26,6 +26,7 @@ const state = {
   status: "전체",
   score: "전체",
   due: "전체",
+  quickFilter: "",
   saved: JSON.parse(localStorage.getItem("withbid-saved") || "[]"),
   notes: JSON.parse(localStorage.getItem("withbid-notes") || "{}"),
   checks: JSON.parse(localStorage.getItem("withbid-checks") || "{}"),
@@ -198,11 +199,11 @@ function dashboard() {
     ${state.connectionStatus === "error" ? `<div class="notice">${escapeHtml(state.connectionError)}</div>` : ""}
     ${state.connectionStatus === "connected" && !state.bids.length ? `<div class="notice">운영 DB 연결은 정상입니다. 첫 나라장터 수집 작업이 완료되면 실제 공고가 표시됩니다.</div>` : ""}
     <section class="cards">
-      <article class="metric"><div class="metric-label">전체 공고</div><div class="metric-value">${state.bids.length}</div><div class="metric-note">수집된 공고</div></article>
-      <article class="metric"><div class="metric-label">마감 7일 이내</div><div class="metric-value">${due7}</div><div class="metric-note">우선 확인 필요</div></article>
-      <article class="metric"><div class="metric-label">참여 가능성 높음</div><div class="metric-value">${fit}</div><div class="metric-note">70점 이상</div></article>
-      <article class="metric"><div class="metric-label">조건 확인 필요</div><div class="metric-value">${review}</div><div class="metric-note">위험요소 포함</div></article>
-      <article class="metric"><div class="metric-label">관심 공고</div><div class="metric-value">${state.saved.length}</div><div class="metric-note">담당자 저장</div></article>
+      <button class="metric metric-button" data-dashboard-filter="all"><div class="metric-label">전체 공고</div><div class="metric-value">${state.bids.length}</div><div class="metric-note">수집된 공고</div></button>
+      <button class="metric metric-button" data-dashboard-filter="due7"><div class="metric-label">마감 7일 이내</div><div class="metric-value">${due7}</div><div class="metric-note">우선 확인 필요</div></button>
+      <button class="metric metric-button" data-dashboard-filter="fit"><div class="metric-label">참여 가능성 높음</div><div class="metric-value">${fit}</div><div class="metric-note">70점 이상</div></button>
+      <button class="metric metric-button" data-dashboard-filter="review"><div class="metric-label">조건 확인 필요</div><div class="metric-value">${review}</div><div class="metric-note">위험요소 포함</div></button>
+      <button class="metric metric-button" data-dashboard-filter="saved"><div class="metric-label">관심 공고</div><div class="metric-value">${state.saved.length}</div><div class="metric-note">담당자 저장</div></button>
     </section>
     <section class="panel">
       <div class="panel-title"><h2>우선 검토 공고</h2><button class="btn btn-secondary" data-route="/bids">전체 보기</button></div>
@@ -217,11 +218,15 @@ function filteredBids() {
   return state.bids.filter(b => {
     const haystack = [b.title, b.bidNo, b.agency, b.demandAgency, ...b.keywords].join(" ").toLowerCase();
     const due = daysUntil(b.deadlineAt);
+    const quickMatch = state.quickFilter !== "review"
+      || b.risks.length > 0
+      || b.status === "조건확인필요";
     return (!q || haystack.includes(q))
       && (state.category === "전체" || b.category === state.category)
       && (state.status === "전체" || b.status === state.status)
       && (state.score === "전체" || (state.score === "70+" ? b.score >= 70 : b.score < 70))
-      && (state.due === "전체" || (state.due === "7" ? due >= 0 && due <= 7 : due >= 0 && due <= 3));
+      && (state.due === "전체" || (state.due === "7" ? due >= 0 && due <= 7 : due >= 0 && due <= 3))
+      && quickMatch;
   }).sort((a,b) => b.score-a.score);
 }
 
@@ -376,6 +381,17 @@ function render() {
 }
 
 document.addEventListener("click", event => {
+  const dashboardFilter = event.target.closest("[data-dashboard-filter]")?.dataset.dashboardFilter;
+  if (dashboardFilter) {
+    state.search = "";
+    state.category = "전체";
+    state.status = "전체";
+    state.score = dashboardFilter === "fit" ? "70+" : "전체";
+    state.due = dashboardFilter === "due7" ? "7" : "전체";
+    state.quickFilter = dashboardFilter === "review" ? "review" : "";
+    location.hash = dashboardFilter === "saved" ? "/saved" : "/bids";
+    return;
+  }
   const route = event.target.closest("[data-route]")?.dataset.route;
   if (route) { location.hash = route; return; }
   const target = event.target.closest("[data-action]");
@@ -392,6 +408,7 @@ document.addEventListener("click", event => {
     state.status = document.querySelector("#filter-status").value;
     state.score = document.querySelector("#score").value;
     state.due = document.querySelector("#due").value;
+    state.quickFilter = "";
     render();
   }
   if (action === "save-detail") {
