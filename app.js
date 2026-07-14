@@ -523,17 +523,26 @@ function savedPage() {
 }
 
 function workflowPage() {
-  const groups = ["신규", "검토중", "조건확인필요", "참여가능", "대표승인필요", "제안/견적준비"];
+  const newBids = state.bids.filter(bid => bid.status === "신규");
+  const processingStatuses = ["검토중", "조건확인필요", "참여가능", "대표승인필요", "제안/견적준비"];
+  const workflowPanel = (status, bids, extraClass = "") => `
+    <section class="panel workflow-panel ${extraClass}">
+      <div class="panel-title"><h2>${status}</h2><span class="badge ${statusBadge(status)}">${bids.length}건</span></div>
+      <div class="workflow-items">
+        ${bids.length ? bids.map(bid => `<article class="workflow-item">
+          <button class="title-link" data-route="/bids/${bid.id}">${escapeHtml(bid.title)}</button>
+          <div class="workflow-item-meta"><span class="score">${bid.score}점</span><span>${date(bid.deadlineAt)}</span></div>
+        </article>`).join("") : `<div class="empty">공고 없음</div>`}
+      </div>
+    </section>`;
   return layout(`
     ${header("업무 보드", "공고 검토부터 투찰 준비까지의 진행 상태입니다.")}
-    <div class="workflow-grid">${groups.map(status => {
-      const bids = state.bids.filter(b => b.status === status);
-      return `<section class="panel"><div class="panel-title"><h2>${status}</h2><span class="badge ${statusBadge(status)}">${bids.length}건</span></div>
-        ${bids.length ? bids.map(b => `<div style="border-top:1px solid var(--line);padding:12px 0">
-          <button class="title-link" data-route="/bids/${b.id}">${escapeHtml(b.title)}</button>
-          <div style="margin-top:7px"><span class="score">${b.score}점</span> · ${date(b.deadlineAt)}</div></div>`).join("") : `<div class="empty">공고 없음</div>`}
-      </section>`;
-    }).join("")}</div>
+    <div class="workflow-layout">
+      ${workflowPanel("신규", newBids, "workflow-new")}
+      <div class="workflow-processing" aria-label="업무 처리 단계">
+        ${processingStatuses.map(status => workflowPanel(status, state.bids.filter(bid => bid.status === status))).join("")}
+      </div>
+    </div>
   `);
 }
 
