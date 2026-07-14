@@ -257,7 +257,7 @@ grant all privileges on all sequences in schema public to service_role;
 
 insert into public.keyword_groups (group_name) values
   ('PC·컴퓨터'), ('서버·고성능장비'), ('전산장비'),
-  ('네트워크·스토리지'), ('주변기기'), ('교육·강의장비')
+  ('네트워크·스토리지'), ('주변기기'), ('교육·강의장비'), ('기타')
 on conflict (group_name) do nothing;
 
 insert into public.keywords (group_id, keyword)
@@ -266,12 +266,13 @@ from public.keyword_groups g
 join lateral (
   select unnest(
     case g.group_name
-      when 'PC·컴퓨터' then array['컴퓨터','PC','데스크톱','노트북','랩탑']
+      when 'PC·컴퓨터' then array['컴퓨터','PC','데스크톱','노트북','랩탑','모니터']
       when '서버·고성능장비' then array['서버','SERVER','GPU 서버','워크스테이션','딥러닝']
       when '전산장비' then array['전산장비','전산기기','전산설비','시스템 장비']
       when '네트워크·스토리지' then array['네트워크','스토리지','NAS','SAN','방화벽','스위치']
       when '주변기기' then array['모니터','프린터','스캐너','UPS']
       when '교육·강의장비' then array['전자칠판','인터랙티브 화이트보드','LED 전광판']
+      when '기타' then array['소프트웨어','렌탈','리스']
       else array[]::text[]
     end
   ) keyword

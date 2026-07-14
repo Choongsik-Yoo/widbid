@@ -33,13 +33,21 @@ const state = {
   connectionStatus: "loading",
   connectionError: "",
   keywordGroups: JSON.parse(localStorage.getItem("withbid-keywords") || "null") || [
-    { name: "PC·컴퓨터", keywords: ["컴퓨터", "PC", "데스크톱", "노트북", "랩탑"] },
+    { name: "PC·컴퓨터", keywords: ["컴퓨터", "PC", "데스크톱", "노트북", "랩탑", "모니터"] },
     { name: "서버·고성능장비", keywords: ["서버", "SERVER", "GPU 서버", "워크스테이션", "딥러닝"] },
     { name: "전산장비", keywords: ["전산장비", "전산기기", "전산설비", "시스템 장비"] },
     { name: "네트워크·스토리지", keywords: ["네트워크", "스토리지", "NAS", "SAN", "방화벽", "스위치"] },
-    { name: "교육·강의장비", keywords: ["전자칠판", "인터랙티브 화이트보드", "LED 전광판"] }
+    { name: "교육·강의장비", keywords: ["전자칠판", "인터랙티브 화이트보드", "LED 전광판"] },
+    { name: "기타", keywords: ["소프트웨어", "렌탈", "리스"] }
   ]
 };
+
+const pcGroup = state.keywordGroups.find(group => group.name === "PC·컴퓨터");
+if (pcGroup && !pcGroup.keywords.includes("모니터")) pcGroup.keywords.push("모니터");
+if (!state.keywordGroups.some(group => group.name === "기타")) {
+  state.keywordGroups.push({ name: "기타", keywords: ["소프트웨어", "렌탈", "리스"] });
+}
+localStorage.setItem("withbid-keywords", JSON.stringify(state.keywordGroups));
 
 const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, char => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
@@ -343,10 +351,9 @@ function settingsPage() {
   return layout(`
     ${header("설정", "검색어와 회사 평가 기준을 관리합니다.")}
     <div class="settings-grid">
-      <section class="panel"><div class="panel-title"><h2>검색어 그룹</h2><button class="btn btn-primary" data-action="add-keyword">그룹 추가</button></div>
+      <section class="panel"><div class="panel-title"><h2>검색어 그룹</h2></div>
         ${state.keywordGroups.map((g,i) => `<div style="border-top:1px solid var(--line);padding:14px 0">
           <strong>${escapeHtml(g.name)}</strong><div>${g.keywords.map(k => `<span class="keyword-chip">${escapeHtml(k)}</span>`).join("")}</div>
-          <button class="btn btn-danger" data-action="delete-keyword" data-index="${i}" style="margin-top:8px">삭제</button>
         </div>`).join("")}
       </section>
       <section class="panel"><h2>회사 평가 기준</h2>
@@ -422,15 +429,6 @@ document.addEventListener("click", event => {
     const current = state.checks[id] || [];
     state.checks[id] = target.checked ? [...new Set([...current, i])] : current.filter(x => x !== i);
     persist();
-  }
-  if (action === "add-keyword") {
-    const name = prompt("새 검색어 그룹 이름을 입력하세요.");
-    if (!name) return;
-    const keywords = prompt("검색어를 쉼표로 구분해 입력하세요.")?.split(",").map(x => x.trim()).filter(Boolean) || [];
-    state.keywordGroups.push({ name, keywords }); persist(); render();
-  }
-  if (action === "delete-keyword" && confirm("이 검색어 그룹을 삭제할까요?")) {
-    state.keywordGroups.splice(Number(index), 1); persist(); render();
   }
 });
 
