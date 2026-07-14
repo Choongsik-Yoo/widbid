@@ -408,7 +408,7 @@ function dashboard() {
 
 function filteredBids() {
   const q = state.search.trim().toLowerCase();
-  return state.bids.filter(b => {
+  const bids = state.bids.filter(b => {
     const haystack = [b.title, b.bidNo, b.agency, b.demandAgency, ...b.keywords].join(" ").toLowerCase();
     const due = daysUntil(b.deadlineAt);
     const quickMatch = state.quickFilter !== "review"
@@ -420,7 +420,14 @@ function filteredBids() {
       && (state.score === "전체" || (state.score === "70+" ? b.score >= 70 : b.score < 70))
       && (state.due === "전체" || (state.due === "7" ? due >= 0 && due <= 7 : due >= 0 && due <= 3))
       && quickMatch;
-  }).sort((a,b) => b.score-a.score);
+  });
+  if (state.due === "3" || state.due === "7") {
+    return bids.sort((a, b) => {
+      const deadlineDifference = new Date(a.deadlineAt).getTime() - new Date(b.deadlineAt).getTime();
+      return deadlineDifference || b.score - a.score;
+    });
+  }
+  return bids.sort((a, b) => b.score - a.score);
 }
 
 function bidsPage() {
@@ -446,7 +453,7 @@ function bidsPage() {
         </select>
         <button class="btn btn-primary" data-action="search">검색</button>
       </div>
-      <div class="panel-title"><h2>검색 결과 ${filteredBids().length}건</h2><span>적합도 높은 순</span></div>
+      <div class="panel-title"><h2>검색 결과 ${filteredBids().length}건</h2><span>${state.due === "3" || state.due === "7" ? "마감 임박순" : "적합도 높은 순"}</span></div>
       ${bidTable(filteredBids())}
     </section>
   `);
