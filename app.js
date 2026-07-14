@@ -1,4 +1,6 @@
 const CONFIG = window.WITHBID_CONFIG || {};
+const ADMIN_EMAIL = "csyoo22@gmail.com";
+const AUTH_STORAGE_KEY = "withbid-auth-session";
 
 const STATUS = [
   "신규", "검토중", "참여가능", "조건확인필요", "대표승인필요",
@@ -27,9 +29,15 @@ const state = {
   score: "전체",
   due: "전체",
   quickFilter: "",
-  saved: JSON.parse(localStorage.getItem("withbid-saved") || "[]"),
-  notes: JSON.parse(localStorage.getItem("withbid-notes") || "{}"),
-  checks: JSON.parse(localStorage.getItem("withbid-checks") || "{}"),
+  saved: [],
+  notes: {},
+  checks: {},
+  assignments: {},
+  user: null,
+  session: null,
+  allowedUsers: [],
+  authReady: false,
+  authError: "",
   connectionStatus: "loading",
   connectionError: "",
   keywordGroups: JSON.parse(localStorage.getItem("withbid-keywords") || "null") || [
@@ -94,10 +102,109 @@ function statusBadge(status) {
 }
 
 function persist() {
-  localStorage.setItem("withbid-saved", JSON.stringify(state.saved));
-  localStorage.setItem("withbid-notes", JSON.stringify(state.notes));
-  localStorage.setItem("withbid-checks", JSON.stringify(state.checks));
   localStorage.setItem("withbid-keywords", JSON.stringify(state.keywordGroups));
+}
+
+function authHeaders(extra = {}) {
+  return {
+    apikey: CONFIG.supabaseAnonKey,
+    Authorization: `Bearer ${state.session?.access_token || CONFIG.supabaseAnonKey}`,
+    "Content-Type": "application/json",
+    ...extra
+  };
+}
+
+async function api(path, options = {}) {
+  const response = await fetch(`${CONFIG.supabaseUrl}${path}`, {
+    ...options,
+    headers: authHeaders(options.headers || {})
+  });
+  if (!response.ok) throw new Error((await response.text()) || `Supabase ${response.status}`);
+  if (response.status === 204) return null;
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
+
+function saveSession(session) {
+  state.session = session;
+  if (session) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+  else localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
+function parseAuthCallback() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  if (!params.get("access_token")) return false;
+  saveSession({
+    access_token: params.get("access_token"),
+    refresh_token: params.get("refresh_token"),
+    expires_at: Math.floor(Date.now() / 1000) + Number(params.get("expires_in") || 3600)
+  });
+  history.replaceState(null, "", `${location.pathname}${location.search}#/dashboard`);
+  return true;
+}
+
+async function refreshSession() {
+  if (!state.session?.refresh_token) return false;
+  const response = await fetch(`${CONFIG.supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: { apikey: CONFIG.supabaseAnonKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: state.session.refresh_token })
+  });
+  if (!response.ok) return false;
+  const session = await response.json();
+  saveSession({ ...session, expires_at: Math.floor(Date.now() / 1000) + session.expires_in });
+  return true;
+}
+
+async function initAuth() {
+  if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) {
+    state.authError = "Supabase 배포 설정이 없습니다.";
+    state.authReady = true;
+    return;
+  }
+  parseAuthCallback();
+  if (!state.session) {
+    try { saveSession(JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null")); } catch { saveSession(null); }
+  }
+  if (state.session?.expires_at <= Math.floor(Date.now() / 1000) + 60 && !(await refreshSession())) saveSession(null);
+  if (!state.session) { state.authReady = true; return; }
+  try {
+    state.user = await api("/auth/v1/user");
+    const email = state.user.email.toLowerCase();
+    const allowed = await api(`/rest/v1/allowed_users?email=eq.${encodeURIComponent(email)}&is_active=eq.true&select=*`);
+    if (!allowed.length) throw new Error("관리자가 허용하지 않은 계정입니다.");
+    state.user.profile = allowed[0];
+  } catch (error) {
+    state.authError = error.message;
+    state.user = null;
+    saveSession(null);
+  }
+  state.authReady = true;
+}
+
+function loginPage() {
+  return `<main class="auth-screen"><section class="panel auth-card">
+    <div class="brand">WithBid <span>AI</span></div>
+    <h1>회사 계정 로그인</h1>
+    <p>관리자가 등록한 Google 계정으로 로그인하세요.<br>관심 공고와 업무 진행 상황은 직원들과 공동으로 저장됩니다.</p>
+    ${state.authError ? `<p class="error-text">${escapeHtml(state.authError)}</p>` : ""}
+    <button class="btn btn-primary" data-action="login-google">Google 계정으로 로그인</button>
+  </section></main>`;
+}
+
+function loginWithGoogle() {
+  const redirectTo = `${location.origin}${location.pathname}`;
+  location.href = `${CONFIG.supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
+}
+
+async function logout() {
+  if (state.session) await api("/auth/v1/logout", { method: "POST" }).catch(() => {});
+  saveSession(null);
+  state.user = null;
+  state.saved = [];
+  state.notes = {};
+  state.checks = {};
+  render();
 }
 
 async function loadBids() {
@@ -110,7 +217,7 @@ async function loadBids() {
   try {
     const response = await fetch(
       `${CONFIG.supabaseUrl}/rest/v1/bids?select=*,bid_analyses(*)&order=posted_at.desc`,
-      { headers: { apikey: CONFIG.supabaseAnonKey, Authorization: `Bearer ${CONFIG.supabaseAnonKey}` } }
+      { headers: authHeaders() }
     );
     if (!response.ok) throw new Error(`Supabase ${response.status}`);
     const rows = await response.json();
@@ -123,6 +230,84 @@ async function loadBids() {
     state.connectionStatus = "error";
     state.connectionError = `실제 데이터 연결 실패: ${error.message}`;
   }
+}
+
+async function loadTeamData() {
+  if (!state.user) return;
+  const [bidStates, checklistRows, users] = await Promise.all([
+    api("/rest/v1/team_bid_states?select=*"),
+    api("/rest/v1/team_bid_checklists?is_checked=eq.true&select=*"),
+    api("/rest/v1/allowed_users?is_active=eq.true&select=email,display_name,role,is_active&order=display_name.asc")
+  ]);
+  state.saved = bidStates.filter(row => row.is_saved).map(row => row.bid_id);
+  state.notes = Object.fromEntries(bidStates.map(row => [row.bid_id, row.memo || ""]));
+  state.assignments = Object.fromEntries(bidStates.map(row => [row.bid_id, row.assigned_email || ""]));
+  state.checks = {};
+  checklistRows.forEach(row => {
+    (state.checks[row.bid_id] ||= []).push(Number(row.item_key));
+  });
+  bidStates.forEach(row => {
+    const bid = state.bids.find(item => item.id === row.bid_id);
+    if (bid) bid.status = row.status;
+  });
+  state.allowedUsers = users;
+}
+
+async function migrateLegacyLocalData() {
+  const legacyKeys = ["withbid-saved", "withbid-notes", "withbid-checks"];
+  if (!legacyKeys.some(key => localStorage.getItem(key))) return;
+  let legacySaved = [], legacyNotes = {}, legacyChecks = {};
+  try {
+    legacySaved = JSON.parse(localStorage.getItem("withbid-saved") || "[]");
+    legacyNotes = JSON.parse(localStorage.getItem("withbid-notes") || "{}");
+    legacyChecks = JSON.parse(localStorage.getItem("withbid-checks") || "{}");
+  } catch (error) {
+    console.warn("기존 브라우저 업무 데이터 변환 실패", error);
+  }
+  const bidIds = new Set([...legacySaved, ...Object.keys(legacyNotes), ...Object.keys(legacyChecks)]);
+  for (const bidId of bidIds) {
+    if (!state.bids.some(bid => bid.id === bidId)) continue;
+    if (legacySaved.includes(bidId)) state.saved = [...new Set([...state.saved, bidId])];
+    if (!state.notes[bidId] && legacyNotes[bidId]) state.notes[bidId] = legacyNotes[bidId];
+    await saveTeamBidState(bidId, { is_saved: state.saved.includes(bidId), memo: state.notes[bidId] || "" });
+    for (const itemIndex of legacyChecks[bidId] || []) {
+      await api("/rest/v1/team_bid_checklists?on_conflict=bid_id,item_key", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify({ bid_id: bidId, item_key: String(itemIndex), item_label: CHECKLIST[itemIndex], is_checked: true, updated_by: state.user.email.toLowerCase(), updated_at: new Date().toISOString() })
+      });
+    }
+  }
+  legacyKeys.forEach(key => localStorage.removeItem(key));
+  if (bidIds.size) await loadTeamData();
+}
+
+async function saveTeamBidState(bidId, changes) {
+  const bid = state.bids.find(item => item.id === bidId);
+  const payload = {
+    bid_id: bidId,
+    is_saved: state.saved.includes(bidId),
+    status: bid?.status || "신규",
+    memo: state.notes[bidId] || "",
+    assigned_email: state.assignments[bidId] || null,
+    updated_by: state.user.email.toLowerCase(),
+    updated_at: new Date().toISOString(),
+    ...changes
+  };
+  await api("/rest/v1/team_bid_states?on_conflict=bid_id", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify(payload)
+  });
+  await logActivity(bidId, "bid_state_updated", changes);
+}
+
+async function logActivity(bidId, action, details = {}) {
+  await api("/rest/v1/team_activity_log", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ bid_id: bidId, actor_email: state.user.email.toLowerCase(), action, details })
+  });
 }
 
 function mapSupabaseBid(row) {
@@ -153,7 +338,7 @@ function layout(content) {
         <button class="mobile-menu" data-action="menu">☰</button>
         <div class="brand">WithBid <span>AI</span></div>
         <div>공공입찰 분석 시스템</div>
-        <div class="topbar-meta">${state.connectionStatus === "connected" ? "운영 DB 연결됨" : "연결 확인 필요"} · ${date(new Date())}</div>
+        <div class="user-menu"><span>${escapeHtml(state.user?.user_metadata?.full_name || state.user?.email || "")}</span><button class="btn btn-secondary" data-action="logout">로그아웃</button></div>
       </header>
       <div class="layout">
         <aside class="sidebar" id="sidebar">
@@ -319,6 +504,11 @@ function detailPage(id) {
           </select>
           <br><br><label>담당자 메모</label>
           <textarea class="textarea" id="memo" data-id="${id}" placeholder="검토 내용과 확인할 사항을 입력하세요.">${escapeHtml(state.notes[id] || "")}</textarea>
+          <br><br><label>담당자</label>
+          <select class="select" id="assignee" data-id="${id}">
+            <option value="">미지정</option>
+            ${state.allowedUsers.map(user => `<option value="${escapeHtml(user.email)}" ${state.assignments[id] === user.email ? "selected" : ""}>${escapeHtml(user.display_name || user.email)}</option>`).join("")}
+          </select>
           <button class="btn btn-primary" style="width:100%;margin-top:10px" data-action="save-detail" data-id="${id}">저장</button>
           <button class="btn btn-secondary" style="width:100%;margin-top:8px" data-action="save" data-id="${id}">${state.saved.includes(id)?"★ 관심 공고 해제":"☆ 관심 공고 저장"}</button>
         </section>
@@ -336,7 +526,7 @@ function workflowPage() {
   const groups = ["신규", "검토중", "조건확인필요", "참여가능", "대표승인필요", "제안/견적준비"];
   return layout(`
     ${header("업무 보드", "공고 검토부터 투찰 준비까지의 진행 상태입니다.")}
-    <div class="settings-grid">${groups.map(status => {
+    <div class="workflow-grid">${groups.map(status => {
       const bids = state.bids.filter(b => b.status === status);
       return `<section class="panel"><div class="panel-title"><h2>${status}</h2><span class="badge ${statusBadge(status)}">${bids.length}건</span></div>
         ${bids.length ? bids.map(b => `<div style="border-top:1px solid var(--line);padding:12px 0">
@@ -348,6 +538,7 @@ function workflowPage() {
 }
 
 function settingsPage() {
+  const isAdmin = state.user?.profile?.role === "admin" || state.user?.email?.toLowerCase() === ADMIN_EMAIL;
   return layout(`
     ${header("설정", "검색어와 회사 평가 기준을 관리합니다.")}
     <div class="settings-grid">
@@ -370,11 +561,27 @@ function settingsPage() {
         <div class="info"><dt>실행 방식</dt><dd>GitHub Actions</dd></div><div class="info"><dt>데이터 원천</dt><dd>나라장터 API</dd></div>
         <div class="info"><dt>현재 연결</dt><dd>${state.connectionStatus === "connected" ? "운영 DB" : "확인 필요"}</dd></div></dl>
       </section>
+      ${isAdmin ? `<section class="panel"><div class="panel-title"><h2>사용 허용 계정</h2></div>
+        <div class="filters" style="grid-template-columns:2fr 1fr auto">
+          <input class="field" id="allowed-email" type="email" placeholder="직원 Google 이메일">
+          <input class="field" id="allowed-name" placeholder="직원 이름">
+          <button class="btn btn-primary" data-action="add-user">등록</button>
+        </div>
+        <table class="user-table"><tbody>${state.allowedUsers.map(user => `<tr><td>${escapeHtml(user.display_name || "-")}</td><td>${escapeHtml(user.email)}</td><td>${escapeHtml(user.role)}</td><td>${user.email === ADMIN_EMAIL ? "관리자" : `<button class="btn btn-danger" data-action="disable-user" data-email="${escapeHtml(user.email)}">비활성화</button>`}</td></tr>`).join("")}</tbody></table>
+      </section>` : ""}
     </div>
   `);
 }
 
 function render() {
+  if (!state.authReady) {
+    document.querySelector("#app").innerHTML = `<main class="auth-screen"><section class="panel auth-card"><p>로그인 정보를 확인하고 있습니다.</p></section></main>`;
+    return;
+  }
+  if (!state.user) {
+    document.querySelector("#app").innerHTML = loginPage();
+    return;
+  }
   state.route = location.hash.slice(1) || "/dashboard";
   let page;
   if (state.route === "/dashboard") page = dashboard();
@@ -387,7 +594,7 @@ function render() {
   document.querySelector("#app").innerHTML = page;
 }
 
-document.addEventListener("click", event => {
+document.addEventListener("click", async event => {
   const dashboardFilter = event.target.closest("[data-dashboard-filter]")?.dataset.dashboardFilter;
   if (dashboardFilter) {
     state.search = "";
@@ -404,10 +611,12 @@ document.addEventListener("click", event => {
   const target = event.target.closest("[data-action]");
   if (!target) return;
   const { action, id, index } = target.dataset;
+  if (action === "login-google") { loginWithGoogle(); return; }
+  if (action === "logout") { await logout(); return; }
   if (action === "menu") document.querySelector("#sidebar")?.classList.toggle("open");
   if (action === "save") {
     state.saved = state.saved.includes(id) ? state.saved.filter(x => x !== id) : [...state.saved, id];
-    persist(); render();
+    await saveTeamBidState(id, { is_saved: state.saved.includes(id) }); render();
   }
   if (action === "search") {
     state.search = document.querySelector("#search").value;
@@ -422,17 +631,50 @@ document.addEventListener("click", event => {
     const bid = state.bids.find(x => x.id === id);
     bid.status = document.querySelector("#detail-status").value;
     state.notes[id] = document.querySelector("#memo").value;
-    persist(); render();
+    state.assignments[id] = document.querySelector("#assignee").value;
+    await saveTeamBidState(id, { status: bid.status, memo: state.notes[id], assigned_email: state.assignments[id] || null }); render();
   }
   if (action === "check") {
     const i = Number(index);
     const current = state.checks[id] || [];
     state.checks[id] = target.checked ? [...new Set([...current, i])] : current.filter(x => x !== i);
-    persist();
+    await api("/rest/v1/team_bid_checklists?on_conflict=bid_id,item_key", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ bid_id: id, item_key: String(i), item_label: CHECKLIST[i], is_checked: target.checked, updated_by: state.user.email.toLowerCase(), updated_at: new Date().toISOString() })
+    });
+    await logActivity(id, "checklist_updated", { item: CHECKLIST[i], checked: target.checked });
+  }
+  if (action === "add-user") {
+    const email = document.querySelector("#allowed-email").value.trim().toLowerCase();
+    const displayName = document.querySelector("#allowed-name").value.trim();
+    if (!email) return;
+    await api("/rest/v1/allowed_users?on_conflict=email", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ email, display_name: displayName || null, role: "member", is_active: true, updated_at: new Date().toISOString() })
+    });
+    await loadTeamData(); render();
+  }
+  if (action === "disable-user") {
+    await api(`/rest/v1/allowed_users?email=eq.${encodeURIComponent(target.dataset.email)}`, {
+      method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ is_active: false, updated_at: new Date().toISOString() })
+    });
+    await loadTeamData(); render();
   }
 });
 
 window.addEventListener("hashchange", render);
 
-await loadBids();
+await initAuth();
+if (state.user) {
+  await loadBids();
+  try {
+    await loadTeamData();
+    await migrateLegacyLocalData();
+  } catch (error) {
+    state.connectionStatus = "error";
+    state.connectionError = `공동 업무 데이터 연결 실패: ${error.message}`;
+  }
+}
 render();
