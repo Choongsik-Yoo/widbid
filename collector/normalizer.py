@@ -3,9 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlencode
+
+
+KST = timezone(timedelta(hours=9))
 
 
 def _first(item: dict[str, Any], *keys: str, default=None):
@@ -29,12 +32,25 @@ def _timestamp(value: Any) -> str | None:
     if not value:
         return None
     text = str(value).strip()
-    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M", "%Y%m%d%H%M"):
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y/%m/%d %H:%M:%S",
+        "%Y/%m/%d %H:%M",
+        "%Y%m%d%H%M%S",
+        "%Y%m%d%H%M",
+    ):
         try:
-            return datetime.strptime(text, fmt).isoformat()
+            return datetime.strptime(text, fmt).replace(tzinfo=KST).isoformat()
         except ValueError:
             continue
-    return text
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return text
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=KST)
+    return parsed.astimezone(KST).isoformat()
 
 
 def _bid_identity(item: dict[str, Any]) -> tuple[str, str]:
@@ -67,8 +83,11 @@ def normalize(item: dict[str, Any]) -> dict[str, Any]:
         "title": title,
         "agency": _first(item, "ntceInsttNm", "agency"),
         "demand_agency": _first(item, "dminsttNm", "demandAgency"),
-        "estimated_amount": _number(_first(item, "presmptPrce", "asignBdgtAmt")),
+        "allocated_budget": _number(_first(item, "asignBdgtAmt", "allocatedBudget")),
+        "estimated_amount": _number(_first(item, "presmptPrce", "estimatedAmount")),
+        "posted_at": _timestamp(_first(item, "bidNtceDt", "postedAt")),
         "deadline_at": _timestamp(_first(item, "bidClseDt", "bidClseDate")),
+        "opening_at": _timestamp(_first(item, "opengDt", "openingAt")),
     }
     content_hash = hashlib.sha256(
         json.dumps(stable, ensure_ascii=False, sort_keys=True).encode("utf-8")
@@ -79,8 +98,6 @@ def normalize(item: dict[str, Any]) -> dict[str, Any]:
         "contract_method": _first(item, "cntrctCnclsMthdNm", "contractMethod"),
         "bid_method": _first(item, "bidMethdNm", "bidMethod", default="전자입찰"),
         "base_amount": _number(_first(item, "bssamt", "baseAmount")),
-        "posted_at": _timestamp(_first(item, "bidNtceDt", "postedAt")),
-        "opening_at": _timestamp(_first(item, "opengDt", "openingAt")),
         # API 응답에 상세 URL이 없거나 메인 URL만 오는 경우가 있어,
         # 공식 단건 링크 규칙으로 항상 정확한 공고 상세 주소를 생성합니다.
         "source_url": build_detail_url(bid_no, bid_order),

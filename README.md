@@ -42,8 +42,9 @@ Supabase의 Google provider와 URL Configuration에는 운영 사이트 URL 및 
 2. `002_data_api_grants.sql`: 기존 프로젝트의 Data API 권한 보강
 3. `002_update_keyword_groups.sql`: 검색어 그룹과 키워드 보강
 4. `003_team_auth_and_shared_work.sql`: 허용 사용자, 팀 공동 상태, 체크리스트, 활동 기록 및 RLS 정책
+5. `004_correct_budget_and_bid_datetimes.sql`: 배정예산 컬럼 추가 및 기존 공고의 KST 일시 복원
 
-운영 프로젝트에는 003까지 적용되어 있습니다. 이미 적용한 migration 파일은 수정하는 대신 새 번호의 migration을 추가합니다.
+운영 프로젝트에는 배포 전에 최신 migration까지 순서대로 적용해야 합니다. 이미 적용한 migration 파일은 수정하는 대신 새 번호의 migration을 추가합니다.
 
 ## GitHub Actions
 

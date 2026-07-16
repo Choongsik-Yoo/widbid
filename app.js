@@ -315,7 +315,7 @@ function mapSupabaseBid(row) {
   return {
     id: row.id, bidNo: formatBidNumber(row.bid_no, row.bid_order), title: row.title, agency: row.agency,
     demandAgency: row.demand_agency, category: row.bid_type, contractMethod: row.contract_method,
-    bidMethod: row.bid_method, amount: row.estimated_amount || row.base_amount,
+    bidMethod: row.bid_method, amount: row.allocated_budget,
     postedAt: row.posted_at, deadlineAt: row.deadline_at, openingAt: row.opening_at,
     region: analysis.region_limit || "전국", score: analysis.fit_score || 0,
     status: row.status || "신규", certifications: analysis.required_certifications || [],
@@ -376,7 +376,7 @@ function bidRows(bids) {
 
 function bidTable(bids) {
   return `<div class="table-wrap"><table>
-    <thead><tr><th>적합도</th><th>공고명</th><th>발주기관</th><th>예산</th><th>마감일</th><th>지역</th><th>상태</th><th>관심</th></tr></thead>
+    <thead><tr><th>적합도</th><th>공고명</th><th>발주기관</th><th>배정예산</th><th>마감일</th><th>지역</th><th>상태</th><th>관심</th></tr></thead>
     <tbody>${bidRows(bids)}</tbody>
   </table></div>`;
 }
@@ -473,8 +473,8 @@ function detailPage(id) {
           <div class="panel-title"><h2>기본 정보</h2><a class="btn btn-primary" href="${escapeHtml(g2bDetailUrl(bid.bidNo))}" target="_blank" rel="noopener">나라장터 원문 ↗</a></div>
           <dl class="info-grid">
             ${[
-              ["발주기관", bid.agency], ["수요기관", bid.demandAgency], ["예산", money(bid.amount)],
-              ["공고일", dateTime(bid.postedAt)], ["입찰마감", dateTime(bid.deadlineAt)], ["개찰일", dateTime(bid.openingAt)],
+              ["발주기관", bid.agency], ["수요기관", bid.demandAgency], ["배정예산", money(bid.amount)],
+              ["공고일시", dateTime(bid.postedAt)], ["입찰마감일시", dateTime(bid.deadlineAt)], ["개찰일시", dateTime(bid.openingAt)],
               ["계약방법", bid.contractMethod], ["입찰방식", bid.bidMethod], ["지역", bid.region]
             ].map(([k,v]) => `<div class="info"><dt>${k}</dt><dd>${escapeHtml(v)}</dd></div>`).join("")}
           </dl>
