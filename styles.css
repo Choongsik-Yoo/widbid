@@ -70,6 +70,7 @@ a { color: inherit; }
 .panel { padding: 20px; margin-bottom: 18px; }
 .panel-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .panel-title h2, .panel h2 { margin: 0; font-size: 18px; }
+.panel-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 
 .filters {
   display: grid; grid-template-columns: 2fr repeat(4, minmax(120px, 1fr)) auto;
