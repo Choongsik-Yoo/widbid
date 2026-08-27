@@ -66,6 +66,29 @@ const date = value => value ? new Intl.DateTimeFormat("ko-KR", { dateStyle: "med
 const dateTime = value => value ? new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "-";
 const daysUntil = value => Math.ceil((new Date(value).getTime() - Date.now()) / 86400000);
 
+function timestamp(value) {
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isExpiredBid(bid) {
+  const deadline = timestamp(bid.deadlineAt);
+  return deadline !== null && deadline < Date.now();
+}
+
+const activeBids = () => state.bids.filter(bid => !isExpiredBid(bid));
+const expiredBids = () => state.bids.filter(isExpiredBid);
+
+function newestFirst(a, b, field = "postedAt") {
+  const aTime = timestamp(a[field]);
+  const bTime = timestamp(b[field]);
+  if (aTime === null && bTime === null) return 0;
+  if (aTime === null) return 1;
+  if (bTime === null) return -1;
+  return bTime - aTime;
+}
+
 function splitBidNumber(bidNo, bidOrder) {
   const normalized = String(bidNo || "").trim().toUpperCase().replace(/\s+/g, "");
   const match = normalized.match(/^(R\d{2}BK\d+)(?:-(\d{1,3}))?$/);
@@ -330,6 +353,7 @@ function layout(content) {
   const routes = [
     ["/dashboard", "▦", "대시보드"], ["/bids", "⌕", "공고 검색"],
     ["/saved", "★", "관심 공고"], ["/workflow", "⇄", "업무 보드"],
+    ["/past", "◷", "지난공고"],
     ["/settings", "⚙", "설정"]
   ];
   return `
@@ -382,9 +406,12 @@ function bidTable(bids) {
 }
 
 function dashboard() {
-  const due7 = state.bids.filter(b => daysUntil(b.deadlineAt) >= 0 && daysUntil(b.deadlineAt) <= 7).length;
-  const fit = state.bids.filter(b => b.score >= 70).length;
-  const review = state.bids.filter(b => b.risks.length || b.status === "조건확인필요").length;
+  const bids = activeBids();
+  const due7 = bids.filter(b => daysUntil(b.deadlineAt) >= 0 && daysUntil(b.deadlineAt) <= 7).length;
+  const fit = bids.filter(b => b.score >= 70).length;
+  const review = bids.filter(b => b.risks.length || b.status === "조건확인필요").length;
+  const saved = bids.filter(b => state.saved.includes(b.id)).length;
+  const latestBids = [...bids].sort((a, b) => newestFirst(a, b)).slice(0, 5);
   return layout(`
     ${header("대시보드", "오늘 확인해야 할 공고와 업무 현황입니다.",
       `<button class="btn btn-primary" data-route="/bids">공고 검색</button>`)}
@@ -392,15 +419,15 @@ function dashboard() {
     ${state.connectionStatus === "error" ? `<div class="notice">${escapeHtml(state.connectionError)}</div>` : ""}
     ${state.connectionStatus === "connected" && !state.bids.length ? `<div class="notice">운영 DB 연결은 정상입니다. 첫 나라장터 수집 작업이 완료되면 실제 공고가 표시됩니다.</div>` : ""}
     <section class="cards">
-      <button class="metric metric-button" data-dashboard-filter="all"><div class="metric-label">전체 공고</div><div class="metric-value">${state.bids.length}</div><div class="metric-note">수집된 공고</div></button>
+      <button class="metric metric-button" data-dashboard-filter="all"><div class="metric-label">전체 공고</div><div class="metric-value">${bids.length}</div><div class="metric-note">마감 전 공고</div></button>
       <button class="metric metric-button" data-dashboard-filter="due7"><div class="metric-label">마감 7일 이내</div><div class="metric-value">${due7}</div><div class="metric-note">우선 확인 필요</div></button>
       <button class="metric metric-button" data-dashboard-filter="fit"><div class="metric-label">참여 가능성 높음</div><div class="metric-value">${fit}</div><div class="metric-note">70점 이상</div></button>
       <button class="metric metric-button" data-dashboard-filter="review"><div class="metric-label">조건 확인 필요</div><div class="metric-value">${review}</div><div class="metric-note">위험요소 포함</div></button>
-      <button class="metric metric-button" data-dashboard-filter="saved"><div class="metric-label">관심 공고</div><div class="metric-value">${state.saved.length}</div><div class="metric-note">담당자 저장</div></button>
+      <button class="metric metric-button" data-dashboard-filter="saved"><div class="metric-label">관심 공고</div><div class="metric-value">${saved}</div><div class="metric-note">마감 전 저장 공고</div></button>
     </section>
     <section class="panel">
       <div class="panel-title"><h2>우선 검토 공고</h2><button class="btn btn-secondary" data-route="/bids">전체 보기</button></div>
-      ${bidTable([...state.bids].sort((a,b) => b.score-a.score).slice(0,5))}
+      ${bidTable(latestBids)}
     </section>
     <div class="footer-note">AI 분석은 참고자료입니다. 참여 결정 전 나라장터 원문과 첨부문서를 반드시 확인하세요.</div>
   `);
@@ -408,7 +435,7 @@ function dashboard() {
 
 function filteredBids() {
   const q = state.search.trim().toLowerCase();
-  const bids = state.bids.filter(b => {
+  const bids = activeBids().filter(b => {
     const haystack = [b.title, b.bidNo, b.agency, b.demandAgency, ...b.keywords].join(" ").toLowerCase();
     const due = daysUntil(b.deadlineAt);
     const quickMatch = state.quickFilter !== "review"
@@ -525,12 +552,13 @@ function detailPage(id) {
 }
 
 function savedPage() {
-  const bids = state.bids.filter(b => state.saved.includes(b.id));
+  const bids = activeBids().filter(b => state.saved.includes(b.id));
   return layout(`${header("관심 공고", "저장한 공고와 검토 상태를 관리합니다.")}<section class="panel">${bidTable(bids)}</section>`);
 }
 
 function workflowPage() {
-  const newBids = state.bids.filter(bid => bid.status === "신규");
+  const bids = activeBids();
+  const newBids = bids.filter(bid => bid.status === "신규");
   const processingStatuses = ["검토중", "조건확인필요", "참여가능", "대표승인필요", "제안/견적준비"];
   const workflowPanel = (status, bids, extraClass = "") => `
     <section class="panel workflow-panel ${extraClass}">
@@ -547,9 +575,20 @@ function workflowPage() {
     <div class="workflow-layout">
       ${workflowPanel("신규", newBids, "workflow-new")}
       <div class="workflow-processing" aria-label="업무 처리 단계">
-        ${processingStatuses.map(status => workflowPanel(status, state.bids.filter(bid => bid.status === status))).join("")}
+        ${processingStatuses.map(status => workflowPanel(status, bids.filter(bid => bid.status === status))).join("")}
       </div>
     </div>
+  `);
+}
+
+function pastBidsPage() {
+  const bids = expiredBids().sort((a, b) => newestFirst(a, b, "deadlineAt"));
+  return layout(`
+    ${header("지난공고", "입찰마감일시가 지난 공고입니다.")}
+    <section class="panel">
+      <div class="panel-title"><h2>지난 공고 ${bids.length}건</h2><span>최근 마감순</span></div>
+      ${bidTable(bids)}
+    </section>
   `);
 }
 
@@ -605,6 +644,7 @@ function render() {
   else if (state.route.startsWith("/bids/")) page = detailPage(state.route.split("/")[2]);
   else if (state.route === "/saved") page = savedPage();
   else if (state.route === "/workflow") page = workflowPage();
+  else if (state.route === "/past") page = pastBidsPage();
   else if (state.route === "/settings") page = settingsPage();
   else page = dashboard();
   document.querySelector("#app").innerHTML = page;
