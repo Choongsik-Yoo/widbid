@@ -230,6 +230,23 @@ async function logout() {
   render();
 }
 
+async function copyToClipboard(value) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("클립보드 복사를 지원하지 않는 브라우저입니다.");
+}
+
 async function loadBids() {
   if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) {
     state.bids = [];
@@ -491,13 +508,17 @@ function detailPage(id) {
   if (!bid) return layout(`${header("공고 없음", "해당 공고를 찾을 수 없습니다.")}<button class="btn btn-primary" data-route="/bids">목록으로</button>`);
   const [scoreLabel, scoreColor] = scoreBadge(bid.score);
   const checks = state.checks[id] || [];
+  const sourceUrl = g2bDetailUrl(bid.bidNo);
   return layout(`
     ${header(escapeHtml(bid.title), `${escapeHtml(bid.bidNo)} · ${escapeHtml(bid.category)}`,
       `<button class="btn btn-secondary" data-route="/bids">목록으로</button>`)}
     <div class="detail-grid">
       <div>
         <section class="panel">
-          <div class="panel-title"><h2>기본 정보</h2><a class="btn btn-primary" href="${escapeHtml(g2bDetailUrl(bid.bidNo))}" target="_blank" rel="noopener">나라장터 원문 ↗</a></div>
+          <div class="panel-title"><h2>기본 정보</h2><div class="panel-actions">
+            <a class="btn btn-primary" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">나라장터 원문 ↗</a>
+            <button class="btn btn-secondary" data-action="copy-source-link" data-url="${escapeHtml(sourceUrl)}">링크복사</button>
+          </div></div>
           <dl class="info-grid">
             ${[
               ["발주기관", bid.agency], ["수요기관", bid.demandAgency], ["배정예산", money(bid.amount)],
@@ -669,6 +690,19 @@ document.addEventListener("click", async event => {
   const { action, id, index } = target.dataset;
   if (action === "login-google") { loginWithGoogle(); return; }
   if (action === "logout") { await logout(); return; }
+  if (action === "copy-source-link") {
+    const originalLabel = target.textContent;
+    try {
+      await copyToClipboard(target.dataset.url);
+      target.textContent = "복사됨";
+      setTimeout(() => { target.textContent = originalLabel; }, 1600);
+    } catch (error) {
+      console.error("나라장터 링크 복사 실패", error);
+      target.textContent = "복사 실패";
+      setTimeout(() => { target.textContent = originalLabel; }, 1600);
+    }
+    return;
+  }
   if (action === "menu") document.querySelector("#sidebar")?.classList.toggle("open");
   if (action === "save") {
     state.saved = state.saved.includes(id) ? state.saved.filter(x => x !== id) : [...state.saved, id];
