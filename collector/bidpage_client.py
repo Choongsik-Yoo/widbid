@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+import ssl
 import time
 from datetime import datetime
 from typing import Any
@@ -9,6 +10,7 @@ from urllib.parse import parse_qs, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
 
 from config import Config
 
@@ -17,6 +19,32 @@ log = logging.getLogger(__name__)
 
 class BidpageAuthenticationError(RuntimeError):
     pass
+
+
+class FingerprintAdapter(HTTPAdapter):
+    """CA 체인이 불완전한 서버를 인증서 지문으로 안전하게 검증합니다."""
+
+    def __init__(self, fingerprint: str) -> None:
+        self.fingerprint = fingerprint.replace(":", "").upper()
+        if not re.fullmatch(r"[0-9A-F]{64}", self.fingerprint):
+            raise ValueError("BIDPAGE_TLS_SHA256은 SHA-256 인증서 지문이어야 합니다.")
+        super().__init__()
+
+    def init_poolmanager(self, connections, maxsize, block=False, **kwargs):
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        kwargs["ssl_context"] = context
+        kwargs["assert_fingerprint"] = self.fingerprint
+        kwargs["cert_reqs"] = ssl.CERT_NONE
+        return super().init_poolmanager(connections, maxsize, block, **kwargs)
+
+    def cert_verify(self, conn, url, verify, cert):
+        conn.assert_fingerprint = self.fingerprint
+        conn.cert_reqs = ssl.CERT_NONE
+        conn.ca_certs = None
+        conn.ca_cert_dir = None
+        conn.ca_cert_data = None
 
 
 def _text(node: Any) -> str:
@@ -86,6 +114,11 @@ class BidpageClient:
                 "Accept-Language": "ko-KR,ko;q=0.9",
             }
         )
+        if config.bidpage_tls_sha256:
+            self.session.mount(
+                f"{config.bidpage_base_url}/",
+                FingerprintAdapter(config.bidpage_tls_sha256),
+            )
 
     @staticmethod
     def _decode(response: requests.Response) -> str:

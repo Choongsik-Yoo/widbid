@@ -20,6 +20,7 @@ class Config:
     bidpage_base_url: str = "https://guro.bidpage.co.kr"
     bidpage_page_size: int = 100
     bidpage_max_pages: int = 20
+    bidpage_tls_sha256: str = ""
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -54,4 +55,5 @@ class Config:
             ).rstrip("/"),
             bidpage_page_size=int(os.getenv("BIDPAGE_PAGE_SIZE", "100")),
             bidpage_max_pages=int(os.getenv("BIDPAGE_MAX_PAGES", "20")),
+            bidpage_tls_sha256=os.getenv("BIDPAGE_TLS_SHA256", ""),
         )

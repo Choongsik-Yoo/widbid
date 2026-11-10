@@ -33,6 +33,7 @@
 | Secret | `DATA_GO_KR_API_KEY` | 공공데이터포털 API 키 |
 | Variable | `BIDPAGE_ENABLED` | Bidpage 수집 사용 여부 (`true`/`false`) |
 | Variable | `BIDPAGE_BASE_URL` | `https://guro.bidpage.co.kr` |
+| Variable | `BIDPAGE_TLS_SHA256` | Bidpage 서버 인증서 SHA-256 지문 |
 | Secret | `BIDPAGE_USERNAME` | Bidpage 로그인 아이디 |
 | Secret | `BIDPAGE_PASSWORD` | Bidpage 로그인 비밀번호 |
 
@@ -41,6 +42,10 @@ Repository Secret으로 등록합니다. 수집기는 비밀번호와 세션 쿠
 Supabase 원본 데이터에 기록하지 않습니다. `BIDPAGE_ENABLED`가 `true`일 때만
 로그인을 시도하며, Bidpage 장애 시 나라장터 수집은 계속되고 실행 결과는
 `partial`로 기록됩니다.
+
+Bidpage 서버의 인증서 체인 검증이 실패하는 환경에서는 TLS 검증을 끄지 않고
+`BIDPAGE_TLS_SHA256`에 등록된 서버 인증서 지문을 대조합니다. 인증서가 갱신되어
+지문이 달라지면 수집을 중단하므로 새 인증서를 확인한 뒤 Variable을 갱신해야 합니다.
 
 Bidpage 이용 권한과 운영사 약관의 범위 안에서만 이 기능을 사용해야 합니다.
 

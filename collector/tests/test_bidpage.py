@@ -1,6 +1,6 @@
 import unittest
 
-from bidpage_client import BidpageClient
+from bidpage_client import BidpageClient, FingerprintAdapter
 from config import Config
 from normalizer import normalize, normalize_bidpage
 
@@ -35,6 +35,12 @@ class BidpageCollectorTest(unittest.TestCase):
         )
         self.assertEqual(identity(g2b), identity(repost))
         self.assertEqual(repost["source_record"]["source_system"], "bidpage")
+
+    def test_tls_fingerprint_must_be_sha256(self):
+        with self.assertRaises(ValueError):
+            FingerprintAdapter("not-a-sha256-fingerprint")
+        adapter = FingerprintAdapter("AA:" * 31 + "AA")
+        self.assertEqual(adapter.fingerprint, "AA" * 32)
 
     def test_non_g2b_notice_keeps_bidpage_identity(self):
         bid = normalize_bidpage({
