@@ -4,7 +4,9 @@ services:
     container_name: withbid-collector
     restart: unless-stopped
     env_file:
-      - .env
+      # QNAP Container Station stores the uploaded secret file here.
+      # Keep this file on the NAS only; never commit its contents.
+      - /share/Container/withbid/.env
     environment:
       COLLECT_AT_HOUR: "8"
       RUN_ON_FIRST_START: "true"
