@@ -78,5 +78,6 @@ jobs:
           test -f app.js
           test -f styles.css
           ! grep -q 'sourceUrl: "https://www.g2b.go.kr/"' app.js
-          grep -q 'g2bDetailUrl(bid.bidNo)' app.js
+          grep -q 'sourceUrl: row.source_url' app.js
+          grep -q 'participationDeadlineAt: row.participation_deadline_at' app.js
           ! grep -q 'demoBids' app.js
