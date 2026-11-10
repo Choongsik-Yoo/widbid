@@ -418,8 +418,8 @@ function bidRows(bids) {
       <td>${escapeHtml(bid.agency)}</td>
       <td>${escapeHtml(bid.noticeAgency)}</td>
       <td>${money(bid.amount)}</td>
-      <td>${dateTime(bid.deadlineAt)}<br><small>${due === null ? "-" : `D${due >= 0 ? "-" : "+"}${Math.abs(due)}`}</small></td>
       <td>${dateTime(bid.participationDeadlineAt)}</td>
+      <td>${dateTime(bid.deadlineAt)}<br><small>${due === null ? "-" : `D${due >= 0 ? "-" : "+"}${Math.abs(due)}`}</small></td>
       <td>${escapeHtml(bid.region)}</td>
       <td><span class="badge ${statusBadge(bid.status)}">${escapeHtml(bid.status)}</span></td>
       <td><button class="btn btn-secondary" data-action="save" data-id="${bid.id}">${state.saved.includes(bid.id) ? "★" : "☆"}</button></td>
@@ -429,7 +429,7 @@ function bidRows(bids) {
 
 function bidTable(bids) {
   return `<div class="table-wrap"><table>
-    <thead><tr><th>적합도</th><th>공고명</th><th>발주기관</th><th>공고기관</th><th>배정예산</th><th>투찰마감일</th><th>참가신청마감일</th><th>지역</th><th>상태</th><th>관심</th></tr></thead>
+    <thead><tr><th>적합도</th><th>공고명</th><th>발주기관</th><th>공고기관</th><th>배정예산</th><th>참가신청마감일</th><th>투찰마감일</th><th>지역</th><th>상태</th><th>관심</th></tr></thead>
     <tbody>${bidRows(bids)}</tbody>
   </table></div>`;
 }
