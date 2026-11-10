@@ -20,6 +20,11 @@ jobs:
           node-version: "22"
       - name: Compile collector
         run: python -m compileall -q collector
+      - name: Install collector dependencies
+        run: pip install -r collector/requirements.txt
+      - name: Run collector unit tests
+        working-directory: collector
+        run: python -m unittest discover -s tests -v
       - name: Check web JavaScript syntax
         run: node --check app.js
       - name: Verify bid number and detail URL
@@ -56,12 +61,15 @@ jobs:
               "bidNtceDt": "2026-07-14 15:07:02",
               "bidClseDt": "202607231000",
               "opengDt": "2026/07/23 11:00:00",
+              "bidQlfctRgstDt": "2026-07-22 18:00",
           })
           assert accurate["allocated_budget"] == 64000000
           assert accurate["estimated_amount"] == 58181818
           assert accurate["posted_at"] == "2026-07-14T15:07:02+09:00"
           assert accurate["deadline_at"] == "2026-07-23T10:00:00+09:00"
           assert accurate["opening_at"] == "2026-07-23T11:00:00+09:00"
+          assert accurate["notice_agency"] == "나라장터"
+          assert accurate["participation_deadline_at"] == "2026-07-22T18:00:00+09:00"
           PY
       - name: Check required web files
         shell: bash

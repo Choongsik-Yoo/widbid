@@ -5,7 +5,7 @@
 - 운영 사이트: https://choongsik-yoo.github.io/widbid/
 - 프런트엔드: 정적 HTML, CSS, JavaScript
 - 데이터베이스·인증: Supabase PostgreSQL, Google OAuth
-- 수집기: Python, 나라장터 API
+- 수집기: Python, 나라장터 API 및 로그인 기반 Bidpage 맞춤공고 수집
 - 자동화: GitHub Actions
 
 ## 주요 기능
@@ -31,6 +31,18 @@
 | Secret | `SUPABASE_ANON_KEY` | 브라우저용 Supabase anon key |
 | Secret | `SUPABASE_SERVICE_ROLE_KEY` | 수집기용 service role key |
 | Secret | `DATA_GO_KR_API_KEY` | 공공데이터포털 API 키 |
+| Variable | `BIDPAGE_ENABLED` | Bidpage 수집 사용 여부 (`true`/`false`) |
+| Variable | `BIDPAGE_BASE_URL` | `https://guro.bidpage.co.kr` |
+| Secret | `BIDPAGE_USERNAME` | Bidpage 로그인 아이디 |
+| Secret | `BIDPAGE_PASSWORD` | Bidpage 로그인 비밀번호 |
+
+Bidpage 로그인 정보는 저장소 파일이나 GitHub Variable이 아니라 반드시
+Repository Secret으로 등록합니다. 수집기는 비밀번호와 세션 쿠키를 로그나
+Supabase 원본 데이터에 기록하지 않습니다. `BIDPAGE_ENABLED`가 `true`일 때만
+로그인을 시도하며, Bidpage 장애 시 나라장터 수집은 계속되고 실행 결과는
+`partial`로 기록됩니다.
+
+Bidpage 이용 권한과 운영사 약관의 범위 안에서만 이 기능을 사용해야 합니다.
 
 Supabase의 Google provider와 URL Configuration에는 운영 사이트 URL 및 OAuth callback에 사용되는 URL이 등록되어 있어야 합니다. 로그인한 Google 계정은 `allowed_users`에 활성 상태로 등록된 경우에만 데이터를 조회할 수 있습니다.
 
@@ -43,6 +55,8 @@ Supabase의 Google provider와 URL Configuration에는 운영 사이트 URL 및 
 3. `002_update_keyword_groups.sql`: 검색어 그룹과 키워드 보강
 4. `003_team_auth_and_shared_work.sql`: 허용 사용자, 팀 공동 상태, 체크리스트, 활동 기록 및 RLS 정책
 5. `004_correct_budget_and_bid_datetimes.sql`: 배정예산 컬럼 추가 및 기존 공고의 KST 일시 복원
+6. `005_add_bid_sources.sql`: 복수 공고 출처와 공식 공고번호 기반 중복 제거
+7. `006_add_notice_agency_and_participation_deadline.sql`: 공고기관 및 참가신청마감일 저장
 
 운영 프로젝트에는 배포 전에 최신 migration까지 순서대로 적용해야 합니다. 이미 적용한 migration 파일은 수정하는 대신 새 번호의 migration을 추가합니다.
 
@@ -50,7 +64,7 @@ Supabase의 Google provider와 URL Configuration에는 운영 사이트 URL 및 
 
 - `Validate project`: Python 수집기 컴파일, 공고번호 정규화, JavaScript 구문, 필수 웹 파일을 검사합니다.
 - `Deploy GitHub Pages`: `main`의 웹 자산이 바뀌면 Pages에 배포합니다.
-- `Collect G2B bids`: 매일 `23:00 UTC`(한국 시간 오전 8시)에 공고를 수집하며 수동 실행도 지원합니다.
+- `Collect G2B bids`: 매일 `23:00 UTC`(한국 시간 오전 8시)에 나라장터와 활성화된 Bidpage 공고를 수집하며 수동 실행도 지원합니다.
 
 배포 문제를 확인할 때는 Actions에서 `Validate project`와 `Deploy GitHub Pages`가 모두 성공했는지 확인한 뒤, 운영 사이트의 `app.js`가 `main`과 일치하는지 점검합니다.
 

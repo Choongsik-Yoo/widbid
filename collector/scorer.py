@@ -42,7 +42,7 @@ def analyze_bid(bid: dict[str, Any]) -> dict[str, Any]:
     if amount is None:
         risks.append("예산 금액 확인 필요")
     if days_left is None:
-        risks.append("입찰 마감일 확인 필요")
+        risks.append("투찰마감일 확인 필요")
     elif days_left < 3:
         risks.append("입찰 마감 임박")
     risks.append("인증·실적 조건은 공고 원문 및 첨부파일 확인 필요")

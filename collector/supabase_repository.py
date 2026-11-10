@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 import requests
@@ -54,7 +55,9 @@ class SupabaseRepository:
             return []
         response = requests.post(
             f"{self.base_url}/bids",
-            params={"on_conflict": "bid_no,bid_order,bid_type"},
+            params={
+                "on_conflict": "canonical_source,bid_no,bid_order,bid_type"
+            },
             headers={
                 **self.headers,
                 "Prefer": "resolution=merge-duplicates,return=representation",
@@ -65,6 +68,26 @@ class SupabaseRepository:
         response.raise_for_status()
         log.info("Supabase에 %s건 upsert 완료", len(bids))
         return response.json()
+
+    def upsert_bid_sources(self, sources: list[dict[str, Any]]) -> None:
+        if not sources:
+            return
+        last_seen_at = datetime.now(timezone.utc).isoformat()
+        payload = [{**source, "last_seen_at": last_seen_at} for source in sources]
+        response = requests.post(
+            f"{self.base_url}/bid_sources",
+            params={
+                "on_conflict": "source_system,source_bid_id,source_bid_order"
+            },
+            headers={
+                **self.headers,
+                "Prefer": "resolution=merge-duplicates",
+            },
+            json=payload,
+            timeout=60,
+        )
+        response.raise_for_status()
+        log.info("공고 출처 %s건 upsert 완료", len(sources))
 
     def upsert_analyses(self, analyses: list[dict[str, Any]]) -> None:
         if not analyses:

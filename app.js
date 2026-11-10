@@ -62,8 +62,12 @@ const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, char => ({
 }[char]));
 
 const money = value => value ? `${Number(value).toLocaleString("ko-KR")}원` : "-";
-const date = value => value ? new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" }).format(new Date(value)) : "-";
-const dateTime = value => value ? new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "-";
+const date = value => value ? new Intl.DateTimeFormat("ko-KR", {
+  dateStyle: "medium", timeZone: "Asia/Seoul"
+}).format(new Date(value)) : "-";
+const dateTime = value => value ? new Intl.DateTimeFormat("ko-KR", {
+  dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Seoul"
+}).format(new Date(value)) : "-";
 const daysUntil = value => Math.ceil((new Date(value).getTime() - Date.now()) / 86400000);
 
 function timestamp(value) {
@@ -99,7 +103,9 @@ function splitBidNumber(bidNo, bidOrder) {
 }
 
 function formatBidNumber(bidNo, bidOrder) {
-  const { number, order } = splitBidNumber(bidNo, bidOrder);
+  const normalized = String(bidNo || "").trim().toUpperCase();
+  if (!/^R\d{2}BK\d+(?:-\d{1,3})?$/.test(normalized)) return normalized;
+  const { number, order } = splitBidNumber(normalized, bidOrder);
   return `${number}-${order}`;
 }
 
@@ -354,14 +360,17 @@ function mapSupabaseBid(row) {
   const analysis = Array.isArray(row.bid_analyses) ? row.bid_analyses[0] : row.bid_analyses || {};
   return {
     id: row.id, bidNo: formatBidNumber(row.bid_no, row.bid_order), title: row.title, agency: row.agency,
+    noticeAgency: row.notice_agency || (row.canonical_source === "g2b" ? "나라장터" : "-"),
     demandAgency: row.demand_agency, category: row.bid_type, contractMethod: row.contract_method,
     bidMethod: row.bid_method, amount: row.allocated_budget,
     postedAt: row.posted_at, deadlineAt: row.deadline_at, openingAt: row.opening_at,
+    participationDeadlineAt: row.participation_deadline_at,
     region: analysis.region_limit || "전국", score: analysis.fit_score || 0,
     status: row.status || "신규", certifications: analysis.required_certifications || [],
     documents: analysis.required_documents || [], requirements: analysis.qualification_requirements || [],
     risks: analysis.risk_factors || [], summary: analysis.summary || "분석 대기 중입니다.",
-    sourceUrl: g2bDetailUrl(row.bid_no, row.bid_order), keywords: row.matched_keywords || [],
+    sourceUrl: row.source_url || (row.canonical_source === "g2b" ? g2bDetailUrl(row.bid_no, row.bid_order) : ""),
+    canonicalSource: row.canonical_source || "g2b", keywords: row.matched_keywords || [],
     breakdown: analysis.score_breakdown || [0, 0, 0, 0, 0, 0, 0]
   };
 }
@@ -398,16 +407,19 @@ function header(title, description, action = "") {
 }
 
 function bidRows(bids) {
-  if (!bids.length) return `<tr><td colspan="9" class="empty">조건에 맞는 공고가 없습니다.</td></tr>`;
+  if (!bids.length) return `<tr><td colspan="10" class="empty">조건에 맞는 공고가 없습니다.</td></tr>`;
   return bids.map(bid => {
     const [label, color] = scoreBadge(bid.score);
+    const due = timestamp(bid.deadlineAt) === null ? null : daysUntil(bid.deadlineAt);
     return `<tr>
       <td><span class="score">${bid.score}</span><br><span class="badge ${color}">${label}</span></td>
       <td><button class="title-link" data-route="/bids/${bid.id}">${escapeHtml(bid.title)}</button><br>
         <small>${escapeHtml(bid.bidNo)}</small></td>
       <td>${escapeHtml(bid.agency)}</td>
+      <td>${escapeHtml(bid.noticeAgency)}</td>
       <td>${money(bid.amount)}</td>
-      <td>${date(bid.deadlineAt)}<br><small>D${daysUntil(bid.deadlineAt) >= 0 ? "-" : "+"}${Math.abs(daysUntil(bid.deadlineAt))}</small></td>
+      <td>${dateTime(bid.deadlineAt)}<br><small>${due === null ? "-" : `D${due >= 0 ? "-" : "+"}${Math.abs(due)}`}</small></td>
+      <td>${dateTime(bid.participationDeadlineAt)}</td>
       <td>${escapeHtml(bid.region)}</td>
       <td><span class="badge ${statusBadge(bid.status)}">${escapeHtml(bid.status)}</span></td>
       <td><button class="btn btn-secondary" data-action="save" data-id="${bid.id}">${state.saved.includes(bid.id) ? "★" : "☆"}</button></td>
@@ -417,7 +429,7 @@ function bidRows(bids) {
 
 function bidTable(bids) {
   return `<div class="table-wrap"><table>
-    <thead><tr><th>적합도</th><th>공고명</th><th>발주기관</th><th>배정예산</th><th>마감일</th><th>지역</th><th>상태</th><th>관심</th></tr></thead>
+    <thead><tr><th>적합도</th><th>공고명</th><th>발주기관</th><th>공고기관</th><th>배정예산</th><th>투찰마감일</th><th>참가신청마감일</th><th>지역</th><th>상태</th><th>관심</th></tr></thead>
     <tbody>${bidRows(bids)}</tbody>
   </table></div>`;
 }
@@ -434,10 +446,10 @@ function dashboard() {
       `<button class="btn btn-primary" data-route="/bids">공고 검색</button>`)}
     ${state.connectionStatus === "config_missing" ? `<div class="notice">운영 DB 설정이 배포되지 않았습니다. 관리자에게 문의하세요.</div>` : ""}
     ${state.connectionStatus === "error" ? `<div class="notice">${escapeHtml(state.connectionError)}</div>` : ""}
-    ${state.connectionStatus === "connected" && !state.bids.length ? `<div class="notice">운영 DB 연결은 정상입니다. 첫 나라장터 수집 작업이 완료되면 실제 공고가 표시됩니다.</div>` : ""}
+    ${state.connectionStatus === "connected" && !state.bids.length ? `<div class="notice">운영 DB 연결은 정상입니다. 첫 공고 수집 작업이 완료되면 실제 공고가 표시됩니다.</div>` : ""}
     <section class="cards">
       <button class="metric metric-button" data-dashboard-filter="all"><div class="metric-label">전체 공고</div><div class="metric-value">${bids.length}</div><div class="metric-note">마감 전 공고</div></button>
-      <button class="metric metric-button" data-dashboard-filter="due7"><div class="metric-label">마감 7일 이내</div><div class="metric-value">${due7}</div><div class="metric-note">우선 확인 필요</div></button>
+      <button class="metric metric-button" data-dashboard-filter="due7"><div class="metric-label">투찰마감 7일 이내</div><div class="metric-value">${due7}</div><div class="metric-note">우선 확인 필요</div></button>
       <button class="metric metric-button" data-dashboard-filter="fit"><div class="metric-label">참여 가능성 높음</div><div class="metric-value">${fit}</div><div class="metric-note">70점 이상</div></button>
       <button class="metric metric-button" data-dashboard-filter="review"><div class="metric-label">조건 확인 필요</div><div class="metric-value">${review}</div><div class="metric-note">위험요소 포함</div></button>
       <button class="metric metric-button" data-dashboard-filter="saved"><div class="metric-label">관심 공고</div><div class="metric-value">${saved}</div><div class="metric-note">마감 전 저장 공고</div></button>
@@ -446,14 +458,14 @@ function dashboard() {
       <div class="panel-title"><h2>우선 검토 공고</h2><button class="btn btn-secondary" data-route="/bids">전체 보기</button></div>
       ${bidTable(latestBids)}
     </section>
-    <div class="footer-note">AI 분석은 참고자료입니다. 참여 결정 전 나라장터 원문과 첨부문서를 반드시 확인하세요.</div>
+    <div class="footer-note">AI 분석은 참고자료입니다. 참여 결정 전 공고 원문과 첨부문서를 반드시 확인하세요.</div>
   `);
 }
 
 function filteredBids() {
   const q = state.search.trim().toLowerCase();
   const bids = activeBids().filter(b => {
-    const haystack = [b.title, b.bidNo, b.agency, b.demandAgency, ...b.keywords].join(" ").toLowerCase();
+    const haystack = [b.title, b.bidNo, b.agency, b.noticeAgency, b.demandAgency, ...b.keywords].join(" ").toLowerCase();
     const due = daysUntil(b.deadlineAt);
     const quickMatch = state.quickFilter !== "review"
       || b.risks.length > 0
@@ -476,7 +488,7 @@ function filteredBids() {
 
 function bidsPage() {
   return layout(`
-    ${header("공고 검색", "키워드와 업무조건으로 나라장터 공고를 찾습니다.")}
+    ${header("공고 검색", "키워드와 업무조건으로 나라장터 및 연계 공고를 찾습니다.")}
     <section class="panel">
       <div class="filters">
         <input class="field" id="search" value="${escapeHtml(state.search)}" placeholder="공고명, 기관, 공고번호, 키워드">
@@ -492,7 +504,7 @@ function bidsPage() {
           <option ${state.score==="under"?"selected":""} value="under">70점 미만</option>
         </select>
         <select class="select" id="due">
-          <option value="전체">전체 마감일</option><option value="3" ${state.due==="3"?"selected":""}>3일 이내</option>
+          <option value="전체">전체 투찰마감일</option><option value="3" ${state.due==="3"?"selected":""}>3일 이내</option>
           <option value="7" ${state.due==="7"?"selected":""}>7일 이내</option>
         </select>
         <button class="btn btn-primary" data-action="search">검색</button>
@@ -508,7 +520,8 @@ function detailPage(id) {
   if (!bid) return layout(`${header("공고 없음", "해당 공고를 찾을 수 없습니다.")}<button class="btn btn-primary" data-route="/bids">목록으로</button>`);
   const [scoreLabel, scoreColor] = scoreBadge(bid.score);
   const checks = state.checks[id] || [];
-  const sourceUrl = g2bDetailUrl(bid.bidNo);
+  const sourceUrl = bid.sourceUrl;
+  const sourceLabel = bid.noticeAgency === "나라장터" ? "나라장터 원문" : "공고 원문";
   return layout(`
     ${header(escapeHtml(bid.title), `${escapeHtml(bid.bidNo)} · ${escapeHtml(bid.category)}`,
       `<button class="btn btn-secondary" data-route="/bids">목록으로</button>`)}
@@ -516,13 +529,15 @@ function detailPage(id) {
       <div>
         <section class="panel">
           <div class="panel-title"><h2>기본 정보</h2><div class="panel-actions">
-            <a class="btn btn-primary" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">나라장터 원문 ↗</a>
-            <button class="btn btn-secondary" data-action="copy-source-link" data-url="${escapeHtml(sourceUrl)}">링크복사</button>
+            ${sourceUrl ? `<a class="btn btn-primary" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">${sourceLabel} ↗</a>
+            <button class="btn btn-secondary" data-action="copy-source-link" data-url="${escapeHtml(sourceUrl)}">링크복사</button>` : ""}
           </div></div>
           <dl class="info-grid">
             ${[
-              ["발주기관", bid.agency], ["수요기관", bid.demandAgency], ["배정예산", money(bid.amount)],
-              ["공고일시", dateTime(bid.postedAt)], ["입찰마감일시", dateTime(bid.deadlineAt)], ["개찰일시", dateTime(bid.openingAt)],
+              ["발주기관", bid.agency], ["공고기관", bid.noticeAgency], ["수요기관", bid.demandAgency],
+              ["배정예산", money(bid.amount)], ["공고일시", dateTime(bid.postedAt)],
+              ["투찰마감일시", dateTime(bid.deadlineAt)], ["참가신청마감일시", dateTime(bid.participationDeadlineAt)],
+              ["개찰일시", dateTime(bid.openingAt)],
               ["계약방법", bid.contractMethod], ["입찰방식", bid.bidMethod], ["지역", bid.region]
             ].map(([k,v]) => `<div class="info"><dt>${k}</dt><dd>${escapeHtml(v)}</dd></div>`).join("")}
           </dl>
@@ -605,7 +620,7 @@ function workflowPage() {
 function pastBidsPage() {
   const bids = expiredBids().sort((a, b) => newestFirst(a, b, "deadlineAt"));
   return layout(`
-    ${header("지난공고", "입찰마감일시가 지난 공고입니다.")}
+    ${header("지난공고", "투찰마감일시가 지난 공고입니다.")}
     <section class="panel">
       <div class="panel-title"><h2>지난 공고 ${bids.length}건</h2><span>최근 마감순</span></div>
       ${bidTable(bids)}

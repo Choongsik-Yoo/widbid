@@ -82,18 +82,23 @@ def normalize(item: dict[str, Any]) -> dict[str, Any]:
         "bid_order": bid_order,
         "title": title,
         "agency": _first(item, "ntceInsttNm", "agency"),
+        "notice_agency": "나라장터",
         "demand_agency": _first(item, "dminsttNm", "demandAgency"),
         "allocated_budget": _number(_first(item, "asignBdgtAmt", "allocatedBudget")),
         "estimated_amount": _number(_first(item, "presmptPrce", "estimatedAmount")),
         "posted_at": _timestamp(_first(item, "bidNtceDt", "postedAt")),
         "deadline_at": _timestamp(_first(item, "bidClseDt", "bidClseDate")),
         "opening_at": _timestamp(_first(item, "opengDt", "openingAt")),
+        "participation_deadline_at": _timestamp(
+            _first(item, "bidQlfctRgstDt", "participationDeadlineAt")
+        ),
     }
     content_hash = hashlib.sha256(
         json.dumps(stable, ensure_ascii=False, sort_keys=True).encode("utf-8")
     ).hexdigest()
     return {
         **stable,
+        "canonical_source": "g2b",
         "bid_type": _first(item, "bsnsDivNm", "bidType", default="물품"),
         "contract_method": _first(item, "cntrctCnclsMthdNm", "contractMethod"),
         "bid_method": _first(item, "bidMethdNm", "bidMethod", default="전자입찰"),
@@ -104,4 +109,76 @@ def normalize(item: dict[str, Any]) -> dict[str, Any]:
         "content_hash": content_hash,
         "raw_data": item,
         "status": "신규",
+        "source_record": {
+            "source_system": "g2b",
+            "source_bid_id": bid_no,
+            "source_bid_order": bid_order,
+            "source_url": build_detail_url(bid_no, bid_order),
+            "raw_data": item,
+        },
+    }
+
+
+def normalize_bidpage(item: dict[str, Any]) -> dict[str, Any]:
+    official_no = str(item.get("official_bid_no") or "").strip().upper()
+    official_order = str(item.get("official_bid_order") or "000")
+    is_g2b = bool(re.fullmatch(r"R\d{2}BK\d+", official_no))
+
+    if is_g2b:
+        bid_no, bid_order = _bid_identity(
+            {"bidNtceNo": official_no, "bidNtceOrd": official_order}
+        )
+        canonical_source = "g2b"
+        source_url = build_detail_url(bid_no, bid_order)
+    else:
+        bid_no = official_no or str(item.get("bidpage_bid_no") or "").strip()
+        bid_order = re.sub(r"\D", "", official_order).zfill(3)[-3:]
+        canonical_source = "bidpage"
+        source_url = item.get("detail_url")
+
+    if not bid_no:
+        raise ValueError("Bidpage 공고 식별번호가 없습니다.")
+
+    title = str(item.get("title") or "제목 없음").strip()
+    stable = {
+        "canonical_source": canonical_source,
+        "bid_no": bid_no,
+        "bid_order": bid_order,
+        "title": title,
+        "agency": item.get("agency"),
+        "notice_agency": item.get("notice_agency") or (
+            "나라장터" if is_g2b else "Bidpage"
+        ),
+        "demand_agency": item.get("demand_agency"),
+        "allocated_budget": _number(item.get("allocated_budget")),
+        "estimated_amount": _number(item.get("estimated_amount")),
+        "posted_at": _timestamp(item.get("posted_at")),
+        "deadline_at": _timestamp(item.get("deadline_at")),
+        "opening_at": _timestamp(item.get("opening_at")),
+        "participation_deadline_at": _timestamp(
+            item.get("participation_deadline_at")
+        ),
+    }
+    content_hash = hashlib.sha256(
+        json.dumps(stable, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    source_bid_id = str(item.get("bidpage_bid_no") or bid_no)
+    source_bid_order = str(item.get("bidpage_bid_seq") or "0")
+    return {
+        **stable,
+        "bid_type": item.get("bid_type") or "물품",
+        "contract_method": item.get("contract_method"),
+        "bid_method": item.get("bid_method"),
+        "base_amount": _number(item.get("base_amount")),
+        "source_url": source_url,
+        "content_hash": content_hash,
+        "raw_data": item,
+        "status": "신규",
+        "source_record": {
+            "source_system": "bidpage",
+            "source_bid_id": source_bid_id,
+            "source_bid_order": source_bid_order,
+            "source_url": item.get("detail_url"),
+            "raw_data": item,
+        },
     }
