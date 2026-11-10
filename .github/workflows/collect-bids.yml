@@ -10,9 +10,7 @@ permissions:
 
 jobs:
   collect:
-    # Bidpage가 GitHub Ubuntu(Azure) 대역을 403으로 차단하므로
-    # 공개 저장소에서 비용 없이 제공되는 별도 macOS 네트워크 경로를 사용합니다.
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
