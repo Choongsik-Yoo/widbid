@@ -1,0 +1,17 @@
+services:
+  collector:
+    image: ghcr.io/choongsik-yoo/widbid-collector:latest
+    container_name: withbid-collector
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      COLLECT_AT_HOUR: "8"
+      RUN_ON_FIRST_START: "true"
+      STARTUP_MARKER: /state/initial-run-complete
+      TZ: Asia/Seoul
+    volumes:
+      - withbid_state:/state
+
+volumes:
+  withbid_state:

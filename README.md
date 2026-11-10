@@ -8,6 +8,10 @@
 - 수집기: Python, 나라장터 API 및 로그인 기반 Bidpage 맞춤공고 수집
 - 자동화: GitHub Actions
 
+QNAP NAS 운영 시에는 `collector/Dockerfile`로 생성한 ARM64 이미지를 Container
+Station에서 실행할 수 있습니다. 컨테이너는 한국 시간 매일 오전 8시에 수집하며,
+최초 실행 시 한 번 즉시 수집합니다. NAS 배포 파일은 `deploy/nas`에 있습니다.
+
 ## 주요 기능
 
 - 대시보드 요약과 공고 검색·필터·정렬
