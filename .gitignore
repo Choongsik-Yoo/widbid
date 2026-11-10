@@ -8,3 +8,4 @@ collector/downloads/
 collector/tmp/
 .DS_Store
 Thumbs.db
+.ego/
