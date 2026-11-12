@@ -158,6 +158,7 @@ class Ebiz4uClient:
             "demand_agency": field("구매사"),
             "posted_at": _date(field("게시일시")),
             "deadline_at": _date(field("입찰마감일시")),
+            "region_limit": field("참가가능지역", "참가지역", "지역제한") or None,
             "contract_method": " / ".join(filter(None, (
                 field("입찰종류1"), field("입찰종류2")
             ))),

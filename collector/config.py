@@ -12,6 +12,10 @@ class Config:
         "https://apis.data.go.kr/1230000/ad/BidPublicInfoService"
         "/getBidPblancListInfoThngPPSSrch"
     )
+    g2b_region_url: str = (
+        "https://apis.data.go.kr/1230000/ad/BidPublicInfoService02"
+        "/getBidPblancListInfoPrtcptPsblRgn02"
+    )
     page_size: int = 100
     request_timeout: int = 30
     bidpage_enabled: bool = False
@@ -50,6 +54,7 @@ class Config:
             supabase_url=required["SUPABASE_URL"].rstrip("/"),
             supabase_service_key=required["SUPABASE_SERVICE_ROLE_KEY"],
             g2b_base_url=os.getenv("G2B_BASE_URL") or cls.g2b_base_url,
+            g2b_region_url=os.getenv("G2B_REGION_URL") or cls.g2b_region_url,
             bidpage_enabled=bidpage_enabled,
             bidpage_username=bidpage_username,
             bidpage_password=bidpage_password,

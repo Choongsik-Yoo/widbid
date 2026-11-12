@@ -28,6 +28,7 @@ jobs:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           G2B_BASE_URL: ${{ vars.G2B_BASE_URL }}
+          G2B_REGION_URL: ${{ vars.G2B_REGION_URL }}
           BIDPAGE_ENABLED: ${{ vars.BIDPAGE_ENABLED }}
           BIDPAGE_BASE_URL: ${{ vars.BIDPAGE_BASE_URL }}
           BIDPAGE_TLS_SHA256: ${{ vars.BIDPAGE_TLS_SHA256 }}

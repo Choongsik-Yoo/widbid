@@ -16,6 +16,7 @@ Station에서 실행할 수 있습니다. 컨테이너는 한국 시간 매일 �
 
 - 대시보드 요약과 공고 검색·필터·정렬
 - 공고 상세정보와 적합도 근거
+- 지역제한 공고 배지와 지역 필터
 - 관심 공고, 상태, 메모, 담당자, 체크리스트 공동 저장
 - 6열 업무 보드
 - 검색어 그룹과 회사 평가 기준 관리
@@ -32,6 +33,7 @@ Station에서 실행할 수 있습니다. 컨테이너는 한국 시간 매일 �
 | --- | --- | --- |
 | Variable | `SUPABASE_URL` | 웹앱과 수집기가 사용하는 Supabase 프로젝트 URL |
 | Variable | `G2B_BASE_URL` | 나라장터 API 기본 URL |
+| Variable | `G2B_REGION_URL` | 나라장터 참가가능지역정보 API URL(미등록 시 공식 기본값 사용) |
 | Secret | `SUPABASE_ANON_KEY` | 브라우저용 Supabase anon key |
 | Secret | `SUPABASE_SERVICE_ROLE_KEY` | 수집기용 service role key |
 | Secret | `DATA_GO_KR_API_KEY` | 공공데이터포털 API 키 |

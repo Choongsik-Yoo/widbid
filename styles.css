@@ -76,7 +76,7 @@ a { color: inherit; }
 .panel-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 
 .filters {
-  display: grid; grid-template-columns: 2fr repeat(4, minmax(120px, 1fr)) auto;
+  display: grid; grid-template-columns: 2fr repeat(5, minmax(120px, 1fr)) auto;
   gap: 10px; margin-bottom: 16px;
 }
 .field, .select, .textarea {

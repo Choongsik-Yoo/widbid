@@ -14,6 +14,25 @@ def _parse_datetime(value: Any) -> datetime | None:
         return None
 
 
+def _region_limit(bid: dict[str, Any]) -> str:
+    raw = bid.get("raw_data") or {}
+    regions = raw.get("participation_regions")
+    if isinstance(regions, list):
+        cleaned = [str(value).strip() for value in regions if str(value).strip()]
+        return ", ".join(dict.fromkeys(cleaned)) if cleaned else "전국"
+    direct = str(raw.get("region_limit") or "").strip()
+    if direct:
+        return direct
+    judgment_basis = str(
+        raw.get("rgnLmtBidLocplcJdgmBssNm") or ""
+    ).strip()
+    if judgment_basis:
+        return f"지역제한 ({judgment_basis} · 지역 원문 확인)"
+    # 보조 API가 실패했거나 출처가 지역정보를 제공하지 않은 경우입니다.
+    # 정보 부재를 전국으로 간주하면 지역제한 공고를 놓칠 수 있습니다.
+    return "확인 필요"
+
+
 def analyze_bid(bid: dict[str, Any]) -> dict[str, Any]:
     """Calculate a conservative baseline score from public API fields."""
 
@@ -22,6 +41,7 @@ def analyze_bid(bid: dict[str, Any]) -> dict[str, Any]:
     deadline = _parse_datetime(bid.get("deadline_at"))
     now = datetime.now(deadline.tzinfo if deadline else timezone.utc)
     days_left = (deadline - now).days if deadline else None
+    region_limit = _region_limit(bid)
 
     product = min(25, 15 + len(keywords) * 5) if keywords else 0
     if amount is None:
@@ -45,6 +65,10 @@ def analyze_bid(bid: dict[str, Any]) -> dict[str, Any]:
         risks.append("투찰마감일 확인 필요")
     elif days_left < 3:
         risks.append("입찰 마감 임박")
+    if region_limit not in {"전국", "확인 필요", "-"}:
+        risks.append(f"지역 제한 확인 필요: {region_limit}")
+    elif region_limit == "확인 필요":
+        risks.append("지역 제한 여부 원문 확인 필요")
     risks.append("인증·실적 조건은 공고 원문 및 첨부파일 확인 필요")
 
     risk = max(0, 10 - max(0, len(risks) - 1) * 3)
@@ -70,7 +94,7 @@ def analyze_bid(bid: dict[str, Any]) -> dict[str, Any]:
         "required_certifications": [],
         "required_documents": [],
         "qualification_requirements": [],
-        "region_limit": "전국",
+        "region_limit": region_limit,
         "risk_factors": risks,
         "score_breakdown": breakdown,
         "fit_score": score,

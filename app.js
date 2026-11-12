@@ -1,7 +1,7 @@
 const CONFIG = window.WITHBID_CONFIG || {};
 const ADMIN_EMAIL = "csyoo22@gmail.com";
 const AUTH_STORAGE_KEY = "withbid-auth-session";
-const APP_VERSION = "v1.0.0";
+const APP_VERSION = "v1.1.0";
 const APP_RELEASE_DATE = "2026.11.12";
 
 const STATUS = [
@@ -30,6 +30,7 @@ const state = {
   status: "전체",
   score: "전체",
   due: "전체",
+  regionFilter: "전체",
   quickFilter: "",
   saved: [],
   notes: {},
@@ -117,6 +118,19 @@ function g2bDetailUrl(bidNo, bidOrder) {
   return `https://www.g2b.go.kr/link/PNPE027_01/single/?${query.toString()}`;
 }
 
+function regionFromRow(row, analysis) {
+  const raw = row.raw_data || {};
+  if (Array.isArray(raw.participation_regions)) {
+    const regions = [...new Set(raw.participation_regions.map(String).map(value => value.trim()).filter(Boolean))];
+    return regions.length ? regions.join(", ") : "전국";
+  }
+  if (raw.region_limit) return String(raw.region_limit);
+  if (raw.rgnLmtBidLocplcJdgmBssNm) {
+    return `지역제한 (${raw.rgnLmtBidLocplcJdgmBssNm} · 지역 원문 확인)`;
+  }
+  return analysis.region_limit || "확인 필요";
+}
+
 function scoreBadge(score) {
   if (score >= 90) return ["적극 검토", "badge-green"];
   if (score >= 70) return ["참여 가능", "badge-blue"];
@@ -130,6 +144,22 @@ function statusBadge(status) {
   if (["제외", "미선정"].includes(status)) return "badge-red";
   if (["신규", "검토중"].includes(status)) return "badge-blue";
   return "badge-gray";
+}
+
+function isRegionRestricted(region) {
+  const value = String(region || "").trim();
+  return Boolean(value) && !["전국", "확인 필요", "-"].includes(value);
+}
+
+function regionDisplay(region) {
+  const value = String(region || "확인 필요");
+  if (isRegionRestricted(value)) {
+    return `<span class="badge badge-amber">지역제한</span><br><small>${escapeHtml(value)}</small>`;
+  }
+  if (value === "확인 필요") {
+    return `<span class="badge badge-gray">지역 확인 필요</span>`;
+  }
+  return `<span class="badge badge-green">전국</span>`;
 }
 
 function persist() {
@@ -367,7 +397,7 @@ function mapSupabaseBid(row) {
     bidMethod: row.bid_method, amount: row.allocated_budget,
     postedAt: row.posted_at, deadlineAt: row.deadline_at, openingAt: row.opening_at,
     participationDeadlineAt: row.participation_deadline_at,
-    region: analysis.region_limit || "전국", score: analysis.fit_score || 0,
+    region: regionFromRow(row, analysis), score: analysis.fit_score || 0,
     status: row.status || "신규", certifications: analysis.required_certifications || [],
     documents: analysis.required_documents || [], requirements: analysis.qualification_requirements || [],
     risks: analysis.risk_factors || [], summary: analysis.summary || "분석 대기 중입니다.",
@@ -425,7 +455,7 @@ function bidRows(bids) {
       <td>${money(bid.amount)}</td>
       <td>${dateTime(bid.participationDeadlineAt)}</td>
       <td>${dateTime(bid.deadlineAt)}<br><small>${due === null ? "-" : `D${due >= 0 ? "-" : "+"}${Math.abs(due)}`}</small></td>
-      <td>${escapeHtml(bid.region)}</td>
+      <td>${regionDisplay(bid.region)}</td>
       <td><span class="badge ${statusBadge(bid.status)}">${escapeHtml(bid.status)}</span></td>
       <td><button class="btn btn-secondary" data-action="save" data-id="${bid.id}">${state.saved.includes(bid.id) ? "★" : "☆"}</button></td>
     </tr>`;
@@ -480,6 +510,8 @@ function filteredBids() {
       && (state.status === "전체" || b.status === state.status)
       && (state.score === "전체" || (state.score === "70+" ? b.score >= 70 : b.score < 70))
       && (state.due === "전체" || (state.due === "7" ? due >= 0 && due <= 7 : due >= 0 && due <= 3))
+      && (state.regionFilter === "전체"
+        || (state.regionFilter === "제한" ? isRegionRestricted(b.region) : b.region === "전국"))
       && quickMatch;
   });
   if (state.due === "3" || state.due === "7") {
@@ -511,6 +543,11 @@ function bidsPage() {
         <select class="select" id="due">
           <option value="전체">전체 투찰마감일</option><option value="3" ${state.due==="3"?"selected":""}>3일 이내</option>
           <option value="7" ${state.due==="7"?"selected":""}>7일 이내</option>
+        </select>
+        <select class="select" id="region-filter">
+          <option value="전체" ${state.regionFilter==="전체"?"selected":""}>전체 지역</option>
+          <option value="제한" ${state.regionFilter==="제한"?"selected":""}>지역 제한</option>
+          <option value="전국" ${state.regionFilter==="전국"?"selected":""}>전국</option>
         </select>
         <button class="btn btn-primary" data-action="search">검색</button>
       </div>
@@ -549,8 +586,9 @@ function detailPage(id) {
               ["배정예산", money(bid.amount)], ["공고일시", dateTime(bid.postedAt)],
               ["투찰마감일시", dateTime(bid.deadlineAt)], ["참가신청마감일시", dateTime(bid.participationDeadlineAt)],
               ["개찰일시", dateTime(bid.openingAt)],
-              ["계약방법", bid.contractMethod], ["입찰방식", bid.bidMethod], ["지역", bid.region]
+              ["계약방법", bid.contractMethod], ["입찰방식", bid.bidMethod]
             ].map(([k,v]) => `<div class="info"><dt>${k}</dt><dd>${escapeHtml(v)}</dd></div>`).join("")}
+            <div class="info"><dt>지역</dt><dd>${regionDisplay(bid.region)}</dd></div>
           </dl>
         </section>
         <section class="panel"><h2>AI 요약</h2><p class="summary">${escapeHtml(bid.summary)}</p>
@@ -710,6 +748,7 @@ document.addEventListener("click", async event => {
     state.status = "전체";
     state.score = dashboardFilter === "fit" ? "70+" : "전체";
     state.due = dashboardFilter === "due7" ? "7" : "전체";
+    state.regionFilter = "전체";
     state.quickFilter = dashboardFilter === "review" ? "review" : "";
     location.hash = dashboardFilter === "saved" ? "/saved" : "/bids";
     return;
@@ -745,6 +784,7 @@ document.addEventListener("click", async event => {
     state.status = document.querySelector("#filter-status").value;
     state.score = document.querySelector("#score").value;
     state.due = document.querySelector("#due").value;
+    state.regionFilter = document.querySelector("#region-filter").value;
     state.quickFilter = "";
     render();
   }

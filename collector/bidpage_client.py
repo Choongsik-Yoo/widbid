@@ -101,6 +101,27 @@ def _value(cells: dict[str, str], *needles: str) -> str:
     return ""
 
 
+def _region_limit(text: str) -> str | None:
+    value = str(text or "").strip()
+    if not value:
+        return None
+    if "전국" in value:
+        return "전국"
+    region_tokens = (
+        "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종",
+        "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남",
+        "제주", "수도권",
+    )
+    bracketed = re.findall(r"\[([^\]]+)\]", value)
+    matches = [
+        token for token in bracketed
+        if any(region in token for region in region_tokens)
+    ]
+    if matches:
+        return ", ".join(dict.fromkeys(matches))
+    return value if any(region in value for region in region_tokens) else None
+
+
 def _is_ebiz4u_notice(notice_agency: str, official_no: str) -> bool:
     """eBiz4u 공고는 Bidpage가 아니라 전용 수집기에서만 가져옵니다."""
     if "ebiz4u" in str(notice_agency or "").lower():
@@ -310,6 +331,7 @@ class BidpageClient:
                     "participation_deadline_at": (
                         schedule_dates[1] if len(schedule_dates) > 1 else None
                     ),
+                    "region_limit": _region_limit(_value(cells, "지역")),
                     "detail_url": href,
                 }
             )
@@ -341,6 +363,9 @@ class BidpageClient:
             "opening_at": _date(field_value("입찰(개찰)일시", "개찰일시")),
             "participation_deadline_at": _date(
                 field_value("참가등록마감일", "참가신청마감일")
+            ),
+            "region_limit": _region_limit(
+                field_value("참가가능지역", "참가지역", "지역제한")
             ),
         }
 

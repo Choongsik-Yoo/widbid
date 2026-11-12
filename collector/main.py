@@ -32,8 +32,21 @@ def main() -> None:
         # API 호출량을 줄이기 위해 전체 신규 공고를 한 번 수집한 뒤 로컬 매칭합니다.
         start_at = now - timedelta(days=2)
         raw_items = g2b_client.search(start_at, now)
-        normalized = [normalize(item) for item in raw_items]
         source_errors: list[str] = []
+        try:
+            region_map = g2b_client.participation_regions(start_at, now)
+            for item in raw_items:
+                identity = normalize(item)
+                item["participation_regions"] = region_map.get(
+                    (identity["bid_no"], identity["bid_order"]), []
+                )
+        except Exception as exc:
+            # 지역 보조 API 장애 시 공고 자체의 수집은 유지하되 실행 결과를
+            # 부분 성공으로 기록하여 '전국'으로 잘못 단정하지 않습니다.
+            error = f"나라장터 참가가능지역 수집 실패: {exc}"[:1000]
+            source_errors.append(error)
+            logging.getLogger(__name__).exception(error)
+        normalized = [normalize(item) for item in raw_items]
         if config.ebiz4u_enabled:
             try:
                 ebiz4u_client = Ebiz4uClient(config)

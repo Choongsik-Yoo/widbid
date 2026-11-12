@@ -103,13 +103,13 @@ class BidpageCollectorTest(unittest.TestCase):
         <table>
           <thead><tr>
             <th>공고명/공고번호</th><th>공고기관</th><th>기초금액</th>
-            <th>추정가격</th><th>입력일</th><th>투찰마감일시</th><th>개찰일시</th>
+            <th>추정가격</th><th>입력일</th><th>투찰마감일시</th><th>개찰일시</th><th>업종/면허 지역</th>
           </tr></thead>
           <tbody><tr>
             <td><a href="/mypage/mypage_bid_contents.htm?BidNo=2026111030886&amp;BidNoSeq=0">GPU 서버 구매</a>
                 조달청 물품 R26BK01819904-000 호</td>
             <td>테스트기관</td><td>110,000,000원</td><td>100,000,000원</td>
-            <td>2026-11-10 09:15</td><td>2026-11-14 10:00</td><td>2026-11-14 11:00</td>
+            <td>2026-11-10 09:15</td><td>2026-11-14 10:00</td><td>2026-11-14 11:00</td><td>[컴퓨터] [서울특별시]</td>
           </tr></tbody>
         </table>
         """
@@ -120,6 +120,7 @@ class BidpageCollectorTest(unittest.TestCase):
         self.assertEqual(rows[0]["notice_agency"], "나라장터")
         self.assertEqual(rows[0]["base_amount"], 110000000)
         self.assertEqual(rows[0]["deadline_at"], "2026-11-14 10:00:00")
+        self.assertEqual(rows[0]["region_limit"], "서울특별시")
 
     def test_parse_legacy_table_combines_amounts_and_two_digit_dates(self):
         html = """
