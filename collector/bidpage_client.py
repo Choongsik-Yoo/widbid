@@ -101,6 +101,42 @@ def _value(cells: dict[str, str], *needles: str) -> str:
     return ""
 
 
+def _is_ebiz4u_notice(notice_agency: str, official_no: str) -> bool:
+    """eBiz4u 공고는 Bidpage가 아니라 전용 수집기에서만 가져옵니다."""
+    if "ebiz4u" in str(notice_agency or "").lower():
+        return True
+    return bool(re.fullmatch(
+        r"[A-Z][A-Z0-9]{4}-\d{2}-\d{8}-\d{5}",
+        str(official_no or "").strip(),
+        re.IGNORECASE,
+    ))
+
+
+_IGNORED_ORIGINAL_HOSTS = (
+    "bidpage.co.kr",
+    "g2b.go.kr",
+    "guro.go.kr",
+    "smartbill.co.kr",
+    "smpp.go.kr",
+    "w3.org",
+    "wa.or.kr",
+)
+
+
+def _clean_external_url(value: str) -> str | None:
+    url = str(value or "").strip().strip("'\"<>[]{}")
+    url = re.sub(r"[),.;:]+/?$", "", url)
+    if not re.match(r"^https?://", url, re.IGNORECASE):
+        return None
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if not host or any(host == blocked or host.endswith(f".{blocked}") for blocked in _IGNORED_ORIGINAL_HOSTS):
+        return None
+    if re.search(r"\.(?:pdf|hwp|hwpx|docx?|xlsx?|zip)(?:$|\?)", parsed.path, re.IGNORECASE):
+        return None
+    return url
+
+
 class BidpageClient:
     login_path = "/common/common_login.htm?RePage=%2Fmypage%2Fmypage_index.htm"
     list_path = "/mypage/mypage_index.htm"
@@ -249,6 +285,9 @@ class BidpageClient:
                 "나라장터" if g2b
                 else _value(cells, "공고기관") or "Bidpage"
             )
+            if _is_ebiz4u_notice(notice_agency, official_no):
+                log.debug("Bidpage eBiz4u 중복 공고 제외: %s", official_no or bidpage_no)
+                continue
             results.append(
                 {
                     "bidpage_bid_no": bidpage_no,
@@ -305,6 +344,50 @@ class BidpageClient:
             ),
         }
 
+    @staticmethod
+    def detail_frame_url(html: str, base_url: str) -> str | None:
+        soup = BeautifulSoup(html, "html.parser")
+        frame = soup.select_one("iframe#ViewFrame1, iframe[name='ViewFrame1']")
+        src = frame.get("src") if frame else None
+        return urljoin(base_url, src) if src else None
+
+    @staticmethod
+    def extract_original_url(html: str) -> str | None:
+        """Bidpage 원문 프레임에 명시된 외부 공고 URL만 추출합니다.
+
+        스크립트 안의 공통 홈페이지 주소는 개별 공고 링크가 아닐 수 있으므로
+        링크 요소와 화면에 보이는 본문 텍스트만 검사합니다.
+        """
+        soup = BeautifulSoup(html, "html.parser")
+        candidates: list[tuple[int, str]] = []
+
+        def add_candidate(value: str, *, anchor: bool) -> None:
+            url = _clean_external_url(value)
+            if not url:
+                return
+            parsed = urlparse(url)
+            score = 6 if anchor else 2
+            if parsed.query:
+                score += 5
+            if parsed.path and parsed.path != "/":
+                score += 3
+            if parsed.scheme == "https":
+                score += 1
+            candidates.append((score, url))
+
+        for link in soup.select("a[href]"):
+            add_candidate(link.get("href", ""), anchor=True)
+
+        for node in soup.select("script, style, noscript"):
+            node.decompose()
+        visible_text = _text(soup)
+        for match in re.findall(r"https?://[^\s<>\"']+", visible_text, re.IGNORECASE):
+            add_candidate(match, anchor=False)
+
+        if not candidates:
+            return None
+        return max(candidates, key=lambda candidate: candidate[0])[1]
+
     def enrich_details(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         enriched: list[dict[str, Any]] = []
         for index, item in enumerate(items):
@@ -313,7 +396,27 @@ class BidpageClient:
                     item["detail_url"], timeout=self.config.request_timeout
                 )
                 response.raise_for_status()
-                details = self.parse_detail(self._decode(response))
+                detail_html = self._decode(response)
+                details = self.parse_detail(detail_html)
+                frame_url = self.detail_frame_url(detail_html, response.url)
+                if frame_url:
+                    try:
+                        frame_response = self.session.get(
+                            frame_url, timeout=self.config.request_timeout
+                        )
+                        frame_response.raise_for_status()
+                        original_url = self.extract_original_url(
+                            self._decode(frame_response)
+                        )
+                        if original_url:
+                            details["original_url"] = original_url
+                    except requests.RequestException as exc:
+                        # 원문 프레임 장애가 정확한 일정·기관 정보 보강까지
+                        # 무효화하지 않도록 상세 필드는 그대로 유지합니다.
+                        log.warning(
+                            "Bidpage 원문 링크 확인 실패 (%s): %s",
+                            item.get("bidpage_bid_no"), exc,
+                        )
                 enriched.append({
                     **item,
                     **{key: value for key, value in details.items() if value},

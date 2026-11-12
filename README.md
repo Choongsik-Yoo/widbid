@@ -5,8 +5,8 @@
 - 운영 사이트: https://choongsik-yoo.github.io/widbid/
 - 프런트엔드: 정적 HTML, CSS, JavaScript
 - 데이터베이스·인증: Supabase PostgreSQL, Google OAuth
-- 수집기: Python, 나라장터 API 및 로그인 기반 Bidpage 맞춤공고 수집
-- 자동화: GitHub Actions
+- 수집기: Python, 나라장터 API, 로그인 기반 Bidpage 및 eBiz4u 공개공고 수집
+- 자동화: QNAP NAS, GitHub Actions
 
 QNAP NAS 운영 시에는 `collector/Dockerfile`로 생성한 ARM64 이미지를 Container
 Station에서 실행할 수 있습니다. 컨테이너는 한국 시간 매일 오전 8시에 수집하며,
@@ -40,6 +40,8 @@ Station에서 실행할 수 있습니다. 컨테이너는 한국 시간 매일 �
 | Variable | `BIDPAGE_TLS_SHA256` | Bidpage 서버 인증서 SHA-256 지문 |
 | Secret | `BIDPAGE_USERNAME` | Bidpage 로그인 아이디 |
 | Secret | `BIDPAGE_PASSWORD` | Bidpage 로그인 비밀번호 |
+| Variable | `EBIZ4U_ENABLED` | eBiz4u 공개공고 직접 수집 여부 (`true`/`false`) |
+| Variable | `EBIZ4U_BASE_URL` | `https://www.ebiz4u.co.kr` |
 
 Bidpage 로그인 정보는 저장소 파일이나 GitHub Variable이 아니라 반드시
 Repository Secret으로 등록합니다. 수집기는 비밀번호와 세션 쿠키를 로그나
@@ -52,6 +54,17 @@ Bidpage 서버의 인증서 체인 검증이 실패하는 환경에서는 TLS �
 지문이 달라지면 수집을 중단하므로 새 인증서를 확인한 뒤 Variable을 갱신해야 합니다.
 
 Bidpage 이용 권한과 운영사 약관의 범위 안에서만 이 기능을 사용해야 합니다.
+
+eBiz4u 수집기는 공개 공고 목록과 공개 상세 페이지를 직접 조회하므로 로그인
+정보가 필요하지 않습니다. Bidpage 목록에 함께 표시되는 eBiz4u 공고는 Bidpage
+수집 단계에서 제외하고 eBiz4u 전용 수집기만 처리합니다. 기존에 Bidpage 출처로
+저장된 eBiz4u 공고는 고유번호를 정규화하여 직접 수집 공고와 통합합니다. NAS
+배포에서는 `EBIZ4U_ENABLED=true`가 기본으로 지정됩니다.
+
+Bidpage의 기타 민간·기관 공고는 상세 원문 프레임에 실제 기관 URL이 명시된
+경우 해당 URL을 공고 바로가기 주소로 저장합니다. 개별 원문 주소가 제공되지
+않는 공고는 잘못된 주소를 추정하지 않고 Bidpage 상세 주소를 대체 경로로
+유지합니다.
 
 Supabase의 Google provider와 URL Configuration에는 운영 사이트 URL 및 OAuth callback에 사용되는 URL이 등록되어 있어야 합니다. 로그인한 Google 계정은 `allowed_users`에 활성 상태로 등록된 경우에만 데이터를 조회할 수 있습니다.
 
@@ -66,6 +79,7 @@ Supabase의 Google provider와 URL Configuration에는 운영 사이트 URL 및 
 5. `004_correct_budget_and_bid_datetimes.sql`: 배정예산 컬럼 추가 및 기존 공고의 KST 일시 복원
 6. `005_add_bid_sources.sql`: 복수 공고 출처와 공식 공고번호 기반 중복 제거
 7. `006_add_notice_agency_and_participation_deadline.sql`: 공고기관 및 참가신청마감일 저장
+8. `007_add_ebiz4u_source_identity.sql`: 기존 Bidpage의 eBiz4u 공고를 직접 수집 출처와 통합
 
 운영 프로젝트에는 배포 전에 최신 migration까지 순서대로 적용해야 합니다. 이미 적용한 migration 파일은 수정하는 대신 새 번호의 migration을 추가합니다.
 
@@ -73,7 +87,7 @@ Supabase의 Google provider와 URL Configuration에는 운영 사이트 URL 및 
 
 - `Validate project`: Python 수집기 컴파일, 공고번호 정규화, JavaScript 구문, 필수 웹 파일을 검사합니다.
 - `Deploy GitHub Pages`: `main`의 웹 자산이 바뀌면 Pages에 배포합니다.
-- `Collect G2B bids`: 매일 `23:00 UTC`(한국 시간 오전 8시)에 나라장터와 활성화된 Bidpage 공고를 수집하며 수동 실행도 지원합니다.
+- `Collect G2B bids`: 매일 `23:00 UTC`(한국 시간 오전 8시)에 나라장터, 활성화된 Bidpage 및 eBiz4u 공고를 수집하며 수동 실행도 지원합니다.
 
 배포 문제를 확인할 때는 Actions에서 `Validate project`와 `Deploy GitHub Pages`가 모두 성공했는지 확인한 뒤, 운영 사이트의 `app.js`가 `main`과 일치하는지 점검합니다.
 

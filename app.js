@@ -1,6 +1,8 @@
 const CONFIG = window.WITHBID_CONFIG || {};
 const ADMIN_EMAIL = "csyoo22@gmail.com";
 const AUTH_STORAGE_KEY = "withbid-auth-session";
+const APP_VERSION = "v1.0.0";
+const APP_RELEASE_DATE = "2026.11.12";
 
 const STATUS = [
   "신규", "검토중", "참여가능", "조건확인필요", "대표승인필요",
@@ -386,8 +388,11 @@ function layout(content) {
     <div class="app-shell">
       <header class="topbar">
         <button class="mobile-menu" data-action="menu">☰</button>
-        <div class="brand">WithBid <span>AI</span></div>
-        <div>공공입찰 분석 시스템</div>
+        <div class="brand-block">
+          <div class="brand">WithBid <span>AI</span></div>
+          <div class="version-info">${APP_VERSION} · ${APP_RELEASE_DATE}</div>
+        </div>
+        <div class="system-title">공공입찰 분석 시스템</div>
         <div class="user-menu"><span>${escapeHtml(state.user?.user_metadata?.full_name || state.user?.email || "")}</span><button class="btn btn-secondary" data-action="logout">로그아웃</button></div>
       </header>
       <div class="layout">
@@ -521,7 +526,13 @@ function detailPage(id) {
   const [scoreLabel, scoreColor] = scoreBadge(bid.score);
   const checks = state.checks[id] || [];
   const sourceUrl = bid.sourceUrl;
-  const sourceLabel = bid.noticeAgency === "나라장터" ? "나라장터 원문" : "공고 원문";
+  const sourceLabel = bid.canonicalSource === "g2b"
+    ? "나라장터 원문"
+    : bid.canonicalSource === "ebiz4u"
+      ? "eBiz4u 원문"
+      : /(^|\.)bidpage\.co\.kr\//i.test(sourceUrl || "")
+        ? "Bidpage 상세"
+        : "공고 원문";
   return layout(`
     ${header(escapeHtml(bid.title), `${escapeHtml(bid.bidNo)} · ${escapeHtml(bid.category)}`,
       `<button class="btn btn-secondary" data-route="/bids">목록으로</button>`)}
@@ -649,8 +660,13 @@ function settingsPage() {
       </section>
       <section class="panel"><h2>자동수집</h2>
         <dl class="info-grid" style="grid-template-columns:1fr 1fr"><div class="info"><dt>실행 시각</dt><dd>매일 08:00 KST</dd></div>
-        <div class="info"><dt>실행 방식</dt><dd>GitHub Actions</dd></div><div class="info"><dt>데이터 원천</dt><dd>나라장터 API</dd></div>
+        <div class="info"><dt>실행 방식</dt><dd>QNAP NAS / GitHub Actions</dd></div><div class="info"><dt>수집처</dt><dd>3곳</dd></div>
         <div class="info"><dt>현재 연결</dt><dd>${state.connectionStatus === "connected" ? "운영 DB" : "확인 필요"}</dd></div></dl>
+        <div class="collection-sources" aria-label="공고 수집처">
+          <div class="collection-source"><strong>나라장터</strong><span>공공데이터 API 직접 수집</span></div>
+          <div class="collection-source"><strong>eBiz4u</strong><span>공개 공고 페이지 직접 수집</span></div>
+          <div class="collection-source"><strong>Bidpage</strong><span>기타 민간·기관 공고 수집 · eBiz4u 제외</span></div>
+        </div>
       </section>
       ${isAdmin ? `<section class="panel"><div class="panel-title"><h2>사용 허용 계정</h2></div>
         <div class="filters" style="grid-template-columns:2fr 1fr auto">

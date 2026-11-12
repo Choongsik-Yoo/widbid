@@ -33,4 +33,6 @@ jobs:
           BIDPAGE_TLS_SHA256: ${{ vars.BIDPAGE_TLS_SHA256 }}
           BIDPAGE_USERNAME: ${{ secrets.BIDPAGE_USERNAME }}
           BIDPAGE_PASSWORD: ${{ secrets.BIDPAGE_PASSWORD }}
+          EBIZ4U_ENABLED: ${{ vars.EBIZ4U_ENABLED }}
+          EBIZ4U_BASE_URL: ${{ vars.EBIZ4U_BASE_URL }}
         run: python main.py

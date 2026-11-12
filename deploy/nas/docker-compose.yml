@@ -12,6 +12,8 @@ services:
       RUN_ON_FIRST_START: "true"
       STARTUP_MARKER: /state/initial-run-complete
       TZ: Asia/Seoul
+      EBIZ4U_ENABLED: "true"
+      EBIZ4U_BASE_URL: https://www.ebiz4u.co.kr
     volumes:
       - withbid_state:/state
 

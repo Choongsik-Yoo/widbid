@@ -42,7 +42,7 @@ class BidpageCollectorTest(unittest.TestCase):
         adapter = FingerprintAdapter("AA:" * 31 + "AA")
         self.assertEqual(adapter.fingerprint, "AA" * 32)
 
-    def test_non_g2b_notice_keeps_bidpage_identity(self):
+    def test_ebiz4u_notice_uses_ebiz4u_identity(self):
         bid = normalize_bidpage({
             "bidpage_bid_no": "2026111050346",
             "bidpage_bid_seq": "0",
@@ -50,8 +50,53 @@ class BidpageCollectorTest(unittest.TestCase):
             "title": "민간 전산장비 구매",
             "detail_url": "https://guro.bidpage.co.kr/mypage/detail",
         })
-        self.assertEqual(bid["canonical_source"], "bidpage")
+        self.assertEqual(bid["canonical_source"], "ebiz4u")
         self.assertEqual(bid["bid_no"], "S0030-20-20261110-00003")
+        self.assertIn("rfqNo=S0030202026111000003", bid["source_url"])
+
+    def test_parse_list_excludes_ebiz4u_notice(self):
+        html = """
+        <table><thead><tr><th>공고명/공고번호</th><th>공고기관</th></tr></thead>
+        <tbody><tr><td><a href="/mypage/mypage_bid_contents.htm?BidNo=1&amp;BidNoSeq=0">서버 구매</a>
+        S0030-20-20261112-00045</td><td>ebiz4u</td></tr></tbody></table>
+        """
+        self.assertEqual(BidpageClient(self.config).parse_list(html), [])
+
+    def test_original_notice_url_is_used_for_non_g2b_notice(self):
+        bid = normalize_bidpage({
+            "bidpage_bid_no": "2026111280197",
+            "bidpage_bid_seq": "0",
+            "official_bid_no": "AW20261112002",
+            "title": "민간기관 서버 구매",
+            "detail_url": "https://guro.bidpage.co.kr/mypage/detail",
+            "original_url": "https://bid.kita.net/bid/index.html?PBLANC_NO=AW20261112002",
+        })
+        self.assertEqual(
+            bid["source_url"],
+            "https://bid.kita.net/bid/index.html?PBLANC_NO=AW20261112002",
+        )
+        self.assertEqual(bid["source_record"]["source_url"], bid["source_url"])
+
+    def test_extract_original_url_ignores_scripts_and_prefers_deep_link(self):
+        html = """
+        <script>var fallback = 'http://bid.etri.re.kr';</script>
+        <a href="https://bid.kita.net/">기관 홈페이지</a>
+        <a href="https://bid.kita.net/bid/index.html?PBLANC_NO=AW20261112002">공고 바로가기</a>
+        """
+        self.assertEqual(
+            BidpageClient.extract_original_url(html),
+            "https://bid.kita.net/bid/index.html?PBLANC_NO=AW20261112002",
+        )
+
+    def test_extract_original_url_from_visible_text(self):
+        html = """
+        <p>전자상거래 주소: http://ebiz.khnp.co.kr)/</p>
+        <p>관련 시스템: https://www.smpp.go.kr</p>
+        """
+        self.assertEqual(
+            BidpageClient.extract_original_url(html),
+            "http://ebiz.khnp.co.kr",
+        )
 
     def test_parse_list_extracts_g2b_fields_without_credentials(self):
         html = """

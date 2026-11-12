@@ -21,6 +21,9 @@ class Config:
     bidpage_page_size: int = 100
     bidpage_max_pages: int = 20
     bidpage_tls_sha256: str = ""
+    ebiz4u_enabled: bool = False
+    ebiz4u_base_url: str = "https://www.ebiz4u.co.kr"
+    ebiz4u_max_pages: int = 40
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -56,4 +59,11 @@ class Config:
             bidpage_page_size=int(os.getenv("BIDPAGE_PAGE_SIZE", "100")),
             bidpage_max_pages=int(os.getenv("BIDPAGE_MAX_PAGES", "20")),
             bidpage_tls_sha256=os.getenv("BIDPAGE_TLS_SHA256", ""),
+            ebiz4u_enabled=os.getenv("EBIZ4U_ENABLED", "").strip().lower() in {
+                "1", "true", "yes", "on"
+            },
+            ebiz4u_base_url=(
+                os.getenv("EBIZ4U_BASE_URL") or cls.ebiz4u_base_url
+            ).rstrip("/"),
+            ebiz4u_max_pages=int(os.getenv("EBIZ4U_MAX_PAGES", "40")),
         )

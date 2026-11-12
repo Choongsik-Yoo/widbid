@@ -30,6 +30,9 @@ a { color: inherit; }
 }
 .brand { font-size: 21px; font-weight: 800; letter-spacing: -.4px; }
 .brand span { color: #83b4ff; }
+.brand-block { display: flex; flex-direction: column; justify-content: center; line-height: 1.05; }
+.version-info { margin-top: 4px; color: #c7d6ff; font-size: 10px; font-weight: 500; letter-spacing: .2px; }
+.system-title { white-space: nowrap; }
 .topbar-meta { margin-left: auto; font-size: 13px; color: #d7e2ff; }
 .mobile-menu { display: none; border: 0; color: white; background: transparent; font-size: 24px; }
 
@@ -146,6 +149,10 @@ tbody tr:hover { background: #f8faff; }
 .user-table td { vertical-align: middle; }
 .error-text { color: var(--red); font-size: 13px; }
 .keyword-chip { display: inline-flex; align-items: center; padding: 5px 9px; border-radius: 99px; background: #eef2f8; margin: 3px; font-size: 13px; }
+.collection-sources { display: grid; gap: 10px; margin-top: 18px; }
+.collection-source { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: #f8faff; }
+.collection-source strong { color: var(--primary); }
+.collection-source span { color: var(--muted); text-align: right; font-size: 14px; }
 .empty { color: var(--muted); text-align: center; padding: 38px 16px; }
 .notice { border: 1px solid #f2d194; background: #fff8e8; color: #785117; padding: 12px 14px; border-radius: 8px; margin-bottom: 16px; }
 .footer-note { color: var(--muted); font-size: 12px; margin-top: 20px; }
@@ -166,6 +173,9 @@ tbody tr:hover { background: #f8faff; }
   .main { padding: 20px 14px; }
   .cards { grid-template-columns: repeat(2, 1fr); }
   .filters, .settings-grid, .info-grid { grid-template-columns: 1fr; }
+  .collection-source { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .collection-source span { text-align: left; }
   .page-header { flex-direction: column; }
   .topbar-meta { display: none; }
+  .system-title { display: none; }
 }
