@@ -6,11 +6,13 @@
 - 프런트엔드: 정적 HTML, CSS, JavaScript
 - 데이터베이스·인증: Supabase PostgreSQL, Google OAuth
 - 수집기: Python, 나라장터 API, 로그인 기반 Bidpage 및 eBiz4u 공개공고 수집
-- 자동화: QNAP NAS, GitHub Actions
+- 자동화: QNAP NAS 자동 수집, GitHub Actions 수동 실행
 
 QNAP NAS 운영 시에는 `collector/Dockerfile`로 생성한 ARM64 이미지를 Container
 Station에서 실행할 수 있습니다. 컨테이너는 한국 시간 매일 오전 8시에 수집하며,
-최초 실행 시 한 번 즉시 수집합니다. NAS 배포 파일은 `deploy/nas`에 있습니다.
+최초 실행 시 한 번 즉시 수집합니다. 오전 8시 이후 NAS나 컨테이너가 시작됐는데
+당일 정상 수집 기록이 없으면 즉시 보충 수집하며, 실패 시 30분 뒤 재시도합니다.
+마지막 정상 수집일은 NAS 볼륨에 보존됩니다. NAS 배포 파일은 `deploy/nas`에 있습니다.
 
 ## 주요 기능
 
@@ -89,7 +91,7 @@ Supabase의 Google provider와 URL Configuration에는 운영 사이트 URL 및 
 
 - `Validate project`: Python 수집기 컴파일, 공고번호 정규화, JavaScript 구문, 필수 웹 파일을 검사합니다.
 - `Deploy GitHub Pages`: `main`의 웹 자산이 바뀌면 Pages에 배포합니다.
-- `Collect G2B bids`: 매일 `23:00 UTC`(한국 시간 오전 8시)에 나라장터, 활성화된 Bidpage 및 eBiz4u 공고를 수집하며 수동 실행도 지원합니다.
+- `Collect G2B bids`: 장애 점검이나 긴급 보충이 필요할 때만 수동으로 실행합니다. 매일 오전 8시 자동 수집은 QNAP NAS가 담당합니다.
 
 배포 문제를 확인할 때는 Actions에서 `Validate project`와 `Deploy GitHub Pages`가 모두 성공했는지 확인한 뒤, 운영 사이트의 `app.js`가 `main`과 일치하는지 점검합니다.
 

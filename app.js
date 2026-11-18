@@ -1,8 +1,8 @@
 const CONFIG = window.WITHBID_CONFIG || {};
 const ADMIN_EMAIL = "csyoo22@gmail.com";
 const AUTH_STORAGE_KEY = "withbid-auth-session";
-const APP_VERSION = "v1.1.0";
-const APP_RELEASE_DATE = "2026.11.12";
+const APP_VERSION = "v1.1.1";
+const APP_RELEASE_DATE = "2026.11.18";
 
 const STATUS = [
   "신규", "검토중", "참여가능", "조건확인필요", "대표승인필요",
@@ -698,7 +698,7 @@ function settingsPage() {
       </section>
       <section class="panel"><h2>자동수집</h2>
         <dl class="info-grid" style="grid-template-columns:1fr 1fr"><div class="info"><dt>실행 시각</dt><dd>매일 08:00 KST</dd></div>
-        <div class="info"><dt>실행 방식</dt><dd>QNAP NAS / GitHub Actions</dd></div><div class="info"><dt>수집처</dt><dd>3곳</dd></div>
+        <div class="info"><dt>실행 방식</dt><dd>QNAP NAS 자동 / GitHub Actions 수동</dd></div><div class="info"><dt>수집처</dt><dd>3곳</dd></div>
         <div class="info"><dt>현재 연결</dt><dd>${state.connectionStatus === "connected" ? "운영 DB" : "확인 필요"}</dd></div></dl>
         <div class="collection-sources" aria-label="공고 수집처">
           <div class="collection-source"><strong>나라장터</strong><span>공공데이터 API 직접 수집</span></div>

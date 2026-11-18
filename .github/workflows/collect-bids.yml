@@ -1,8 +1,6 @@
 name: Collect G2B bids
 
 on:
-  schedule:
-    - cron: "0 23 * * *"
   workflow_dispatch:
 
 permissions:

@@ -11,6 +11,8 @@ services:
       COLLECT_AT_HOUR: "8"
       RUN_ON_FIRST_START: "true"
       STARTUP_MARKER: /state/initial-run-complete
+      LAST_SUCCESS_MARKER: /state/last-successful-run-date
+      RETRY_AFTER_MINUTES: "30"
       TZ: Asia/Seoul
       EBIZ4U_ENABLED: "true"
       EBIZ4U_BASE_URL: https://www.ebiz4u.co.kr
